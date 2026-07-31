@@ -45,16 +45,16 @@ const RESOLUTIONS = [
 ];
 
 const defaultWorkflowData = {
-  "3": { "inputs": { "seed": "seed", "steps": 20, "cfg": 7, "sampler_name": "sampler", "scheduler": "normal", "denoise": 1, "model": ["35", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
-  "4": { "inputs": { "ckpt_name": "model" }, "class_type": "CheckpointLoaderSimple" },
-  "5": { "inputs": { "width": "width", "height": "height", "batch_size": 1 }, "class_type": "EmptyLatentImage" },
-  "6": { "inputs": { "text": "input", "clip": ["35", 1] }, "class_type": "CLIPTextEncode" },
-  "7": { "inputs": { "text": "ninput", "clip": ["35", 1] }, "class_type": "CLIPTextEncode" },
-  "8": { "inputs": { "samples": ["33", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
-  "14": { "inputs": { "images": ["8", 0] }, "class_type": "PreviewImage" },
-  "33": { "inputs": { "seed": "seed", "steps": 20, "cfg": 7, "sampler_name": "sampler", "scheduler": "normal", "denoise": 0.5, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["34", 0] }, "class_type": "KSampler" },
-  "34": { "inputs": { "upscale_method": "nearest-exact", "scale_by": 1.2, "samples": ["3", 0] }, "class_type": "LatentUpscaleBy" },
-  "35": { "inputs": { "lora_name": "lora", "strength_model": "lorawt", "strength_clip": "lorawt", "model": ["4", 0], "clip": ["4", 1] }, "class_type": "LoraLoader" }
+    "3": { "inputs": { "seed": "seed", "steps": 20, "cfg": 7, "sampler_name": "sampler", "scheduler": "normal", "denoise": 1, "model": ["35", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0] }, "class_type": "KSampler" },
+    "4": { "inputs": { "ckpt_name": "model" }, "class_type": "CheckpointLoaderSimple" },
+    "5": { "inputs": { "width": "width", "height": "height", "batch_size": 1 }, "class_type": "EmptyLatentImage" },
+    "6": { "inputs": { "text": "input", "clip": ["35", 1] }, "class_type": "CLIPTextEncode" },
+    "7": { "inputs": { "text": "ninput", "clip": ["35", 1] }, "class_type": "CLIPTextEncode" },
+    "8": { "inputs": { "samples": ["33", 0], "vae": ["4", 2] }, "class_type": "VAEDecode" },
+    "14": { "inputs": { "images": ["8", 0] }, "class_type": "PreviewImage" },
+    "33": { "inputs": { "seed": "seed", "steps": 20, "cfg": 7, "sampler_name": "sampler", "scheduler": "normal", "denoise": 0.5, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["34", 0] }, "class_type": "KSampler" },
+    "34": { "inputs": { "upscale_method": "nearest-exact", "scale_by": 1.2, "samples": ["3", 0] }, "class_type": "LatentUpscaleBy" },
+    "35": { "inputs": { "lora_name": "lora", "strength_model": "lorawt", "strength_clip": "lorawt", "model": ["4", 0], "clip": ["4", 1] }, "class_type": "LoraLoader" }
 };
 
 const defaultSettings = {
@@ -85,11 +85,10 @@ const defaultSettings = {
     denoise: 0.5,
     clipSkip: 1,
     profileStrategy: "current",
-    promptStyle: "standard",      
-    promptPerspective: "scene",   
-    promptExtra: "",              
-    connectionProfile: "",
-    savedWorkflowStates: {}  
+    promptStyle: "standard",
+    promptPerspective: "scene",
+    promptExtra: "",
+    savedWorkflowStates: {}
 };
 
 async function loadSettings() {
@@ -107,7 +106,7 @@ async function loadSettings() {
     $("#kazuma_height").val(extension_settings[extensionName].imgHeight);
     $("#kazuma_auto_enable").prop("checked", extension_settings[extensionName].autoGenEnabled);
     $("#kazuma_auto_freq").val(extension_settings[extensionName].autoGenFreq);
-	
+
     $("#kazuma_prompt_style").val(extension_settings[extensionName].promptStyle || "standard");
     $("#kazuma_prompt_persp").val(extension_settings[extensionName].promptPerspective || "scene");
     $("#kazuma_prompt_extra").val(extension_settings[extensionName].promptExtra || "");
@@ -124,9 +123,9 @@ async function loadSettings() {
     $("#kazuma_negative").val(extension_settings[extensionName].customNegative);
     $("#kazuma_seed").val(extension_settings[extensionName].customSeed);
     $("#kazuma_compress").prop("checked", extension_settings[extensionName].compressImages);
-	
-	$("#kazuma_profile_strategy").val(extension_settings[extensionName].profileStrategy || "current");
-toggleProfileVisibility();
+
+    $("#kazuma_profile_strategy").val(extension_settings[extensionName].profileStrategy || "current");
+    toggleProfileVisibility();
 
     updateSliderInput('kazuma_steps', 'kazuma_steps_val', extension_settings[extensionName].steps);
     updateSliderInput('kazuma_cfg', 'kazuma_cfg_val', extension_settings[extensionName].cfg);
@@ -145,7 +144,7 @@ function toggleProfileVisibility() {
     // Always show the builder now!
     $("#kazuma_prompt_builder").show();
 
-    // Only toggle the preset selector
+    // Only toggle the connection profile selector
     if (strategy === "specific") {
         $("#kazuma_profile").show();
     } else {
@@ -174,7 +173,7 @@ async function populateWorkflows() {
         const response = await fetch('/api/sd/comfy/workflows', {
             method: 'POST',
             headers: getRequestHeaders(),
-            body: JSON.stringify({ url: extension_settings[extensionName].comfyUrl }),
+                                     body: JSON.stringify({ url: extension_settings[extensionName].comfyUrl }),
         });
 
         if (response.ok) {
@@ -210,7 +209,7 @@ async function onComfyNewWorkflowClick() {
     try {
         const res = await fetch('/api/sd/comfy/save-workflow', {
             method: 'POST', headers: getRequestHeaders(),
-            body: JSON.stringify({ file_name: name, workflow: '{}' })
+                                body: JSON.stringify({ file_name: name, workflow: '{}' })
         });
         if (!res.ok) throw new Error(await res.text());
         toastr.success("Workflow created!");
@@ -228,7 +227,7 @@ async function onComfyDeleteWorkflowClick() {
     try {
         const res = await fetch('/api/sd/comfy/delete-workflow', {
             method: 'POST', headers: getRequestHeaders(),
-            body: JSON.stringify({ file_name: name })
+                                body: JSON.stringify({ file_name: name })
         });
         if (!res.ok) throw new Error(await res.text());
         toastr.success("Deleted.");
@@ -246,7 +245,7 @@ async function onComfyOpenWorkflowEditorClick() {
     try {
         const res = await fetch('/api/sd/comfy/workflow', {
             method: 'POST', headers: getRequestHeaders(),
-            body: JSON.stringify({ file_name: name })
+                                body: JSON.stringify({ file_name: name })
         });
         if (res.ok) {
             const rawBody = await res.json();
@@ -263,28 +262,28 @@ async function onComfyOpenWorkflowEditorClick() {
 
     // --- UI BUILDER ---
     const $container = $(`
-        <div style="display: flex; flex-direction: column; width: 100%; gap: 10px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--smart-border-color); padding-bottom:10px;">
-                <h3 style="margin:0;">${name}</h3>
-                <div style="display:flex; gap:5px;">
-                    <button class="menu_button wf-format" title="Beautify JSON"><i class="fa-solid fa-align-left"></i> Format</button>
-                    <button class="menu_button wf-import" title="Upload .json file"><i class="fa-solid fa-upload"></i> Import</button>
-                    <button class="menu_button wf-export" title="Download .json file"><i class="fa-solid fa-download"></i> Export</button>
-                    <input type="file" class="wf-file-input" accept=".json" style="display:none;" />
-                </div>
-            </div>
+    <div style="display: flex; flex-direction: column; width: 100%; gap: 10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--smart-border-color); padding-bottom:10px;">
+    <h3 style="margin:0;">${name}</h3>
+    <div style="display:flex; gap:5px;">
+    <button class="menu_button wf-format" title="Beautify JSON"><i class="fa-solid fa-align-left"></i> Format</button>
+    <button class="menu_button wf-import" title="Upload .json file"><i class="fa-solid fa-upload"></i> Import</button>
+    <button class="menu_button wf-export" title="Download .json file"><i class="fa-solid fa-download"></i> Export</button>
+    <input type="file" class="wf-file-input" accept=".json" style="display:none;" />
+    </div>
+    </div>
 
-            <div style="display: flex; gap: 15px;">
-                <textarea class="text_pole wf-textarea" spellcheck="false"
-                    style="flex: 1; min-height: 600px; height: 600px; font-family: 'Consolas', 'Monaco', monospace; white-space: pre; resize: none; font-size: 13px; padding: 10px; line-height: 1.4;"></textarea>
+    <div style="display: flex; gap: 15px;">
+    <textarea class="text_pole wf-textarea" spellcheck="false"
+    style="flex: 1; min-height: 600px; height: 600px; font-family: 'Consolas', 'Monaco', monospace; white-space: pre; resize: none; font-size: 13px; padding: 10px; line-height: 1.4;"></textarea>
 
-                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--smart-border-color); padding-left: 10px; max-height: 600px;">
-                    <h4 style="margin: 0 0 10px 0; opacity:0.8;">Placeholders</h4>
-                    <div class="wf-list" style="overflow-y: auto; flex: 1; padding-right: 5px;"></div>
-                </div>
-            </div>
-            <small style="opacity:0.5;">Tip: Ensure your JSON is valid before saving.</small>
-        </div>
+    <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; border-left: 1px solid var(--smart-border-color); padding-left: 10px; max-height: 600px;">
+    <h4 style="margin: 0 0 10px 0; opacity:0.8;">Placeholders</h4>
+    <div class="wf-list" style="overflow-y: auto; flex: 1; padding-right: 5px;"></div>
+    </div>
+    </div>
+    <small style="opacity:0.5;">Tip: Ensure your JSON is valid before saving.</small>
+    </div>
     `);
 
     // --- LOGIC ---
@@ -298,11 +297,11 @@ async function onComfyOpenWorkflowEditorClick() {
     // Sidebar Generator
     KAZUMA_PLACEHOLDERS.forEach(item => {
         const $itemDiv = $('<div></div>')
-            .css({
-                'padding': '8px 6px', 'margin-bottom': '6px', 'background-color': 'rgba(0,0,0,0.1)',
-                'border-radius': '4px', 'font-family': 'monospace', 'font-size': '12px',
-                'border': '1px solid transparent', 'transition': 'all 0.2s', 'cursor': 'text'
-            });
+        .css({
+            'padding': '8px 6px', 'margin-bottom': '6px', 'background-color': 'rgba(0,0,0,0.1)',
+             'border-radius': '4px', 'font-family': 'monospace', 'font-size': '12px',
+             'border': '1px solid transparent', 'transition': 'all 0.2s', 'cursor': 'text'
+        });
         const $keySpan = $('<span></span>').text(item.key).css({'font-weight': 'bold', 'color': 'var(--smart-text-color)'});
         const $descSpan = $('<div></div>').text(item.desc).css({ 'font-size': '11px', 'opacity': '0.7', 'margin-top': '2px', 'font-family': 'sans-serif' });
         $itemDiv.append($keySpan).append($descSpan);
@@ -373,7 +372,7 @@ async function onComfyOpenWorkflowEditorClick() {
             const minified = JSON.stringify(JSON.parse(currentJsonText));
             const res = await fetch('/api/sd/comfy/save-workflow', {
                 method: 'POST', headers: getRequestHeaders(),
-                body: JSON.stringify({ file_name: name, workflow: minified })
+                                    body: JSON.stringify({ file_name: name, workflow: minified })
             });
 
             if (!res.ok) throw new Error(await res.text());
@@ -450,16 +449,13 @@ async function onGeneratePrompt() {
 
     const strategy = extension_settings[extensionName].profileStrategy || "current";
     const requestProfile = extension_settings[extensionName].connectionProfile;
-    const targetDropdown = $("#settings_preset_openai");
-    const originalProfile = targetDropdown.val();
-    let didSwitch = false;
-
-    if (strategy === "specific" && requestProfile && requestProfile !== originalProfile && requestProfile !== "") {
-        toastr.info(`Switching presets...`);
-        targetDropdown.val(requestProfile).trigger("change");
-        await new Promise(r => setTimeout(r, 1000));
-        didSwitch = true;
-    }
+    // If a specific profile is chosen and the Connection Manager extension is active, we fire the
+    // request directly at that profile via ConnectionManagerRequestService. This never touches your
+    // actively selected connection profile or preset, so it can't be affected by (and can't trigger)
+    // the "switch connection profile on preset change" setting. To pair a specific preset with this,
+    // set that preset on the connection profile itself in ST's Connection Profile manager - the
+    // profile carries its preset with it, so selecting it here uses both automatically.
+    const useOwnProfile = strategy === "specific" && !!requestProfile && isConnectionManagerActive();
 
     // [START PROGRESS]
     showKazumaProgress("Generating Prompt...");
@@ -483,19 +479,21 @@ async function onGeneratePrompt() {
         else perspInst = "Describe the entire environment and atmosphere.";
 
         const instruction = `
-            Task: Write an image generation prompt for the following scene.
-            Scene: "${lastMessage}"
-            Style Constraint: ${styleInst}
-            Perspective: ${perspInst}
-            Additional Req: ${extra}
-            Output ONLY the prompt text.
-            `;
+        Task: Write an image generation prompt for the following scene.
+        Scene: "${lastMessage}"
+        Style Constraint: ${styleInst}
+        Perspective: ${perspInst}
+        Additional Req: ${extra}
+        Output ONLY the prompt text.
+        `;
 
-        let generatedText = await generateQuietPrompt(instruction, true);
-
-        if (didSwitch) {
-            targetDropdown.val(originalProfile).trigger("change");
-            await new Promise(r => setTimeout(r, 500));
+        let generatedText;
+        if (useOwnProfile) {
+            const messages = [{ role: "user", content: instruction }];
+            const result = await context.ConnectionManagerRequestService.sendRequest(requestProfile, messages);
+            generatedText = (typeof result === "string") ? result : (result?.content ?? "");
+        } else {
+            generatedText = await generateQuietPrompt(instruction, true);
         }
 
         if (s.debugPrompt) {
@@ -503,10 +501,10 @@ async function onGeneratePrompt() {
             hideKazumaProgress();
 
             const $content = $(`
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <p><b>Review generated prompt:</b></p>
-                    <textarea class="text_pole" rows="6" style="width:100%; resize:vertical; font-family:monospace;">${generatedText}</textarea>
-                </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+            <p><b>Review generated prompt:</b></p>
+            <textarea class="text_pole" rows="6" style="width:100%; resize:vertical; font-family:monospace;">${generatedText}</textarea>
+            </div>
             `);
             let currentText = generatedText;
             $content.find("textarea").on("input", function() { currentText = $(this).val(); });
@@ -529,7 +527,6 @@ async function onGeneratePrompt() {
     } catch (err) {
         // [HIDE PROGRESS ON ERROR]
         hideKazumaProgress();
-        if (didSwitch) targetDropdown.val(originalProfile).trigger("change");
         console.error(err);
         toastr.error("Generation failed. Check console.");
     }
@@ -599,7 +596,7 @@ function injectParamsIntoWorkflow(workflow, promptText, finalSeed) {
                 if (val === "*height*") node.inputs[key] = parseInt(s.imgHeight) || 512;
             }
             if (!seedInjected && node.class_type === "KSampler" && 'seed' in node.inputs && typeof node.inputs['seed'] === 'number') {
-               node.inputs.seed = finalSeed;
+                node.inputs.seed = finalSeed;
             }
         }
     }
@@ -630,10 +627,10 @@ async function onImageSwiped(data) {
 }
 
 async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
-     // [UPDATE TEXT]
-     showKazumaProgress("Rendering Image...");
+    // [UPDATE TEXT]
+    showKazumaProgress("Rendering Image...");
 
-     const checkInterval = setInterval(async () => {
+    const checkInterval = setInterval(async () => {
         try {
             const h = await (await fetch(`${baseUrl}/history/${promptId}`)).json();
             if (h[promptId]) {
@@ -747,14 +744,14 @@ jQuery(async () => {
         // 1. INJECT PROGRESS BAR HTML (New Code Here)
         if ($("#kazuma_progress_overlay").length === 0) {
             $("body").append(`
-                <div id="kazuma_progress_overlay">
-                    <div style="flex:1">
-                        <span id="kazuma_progress_text">Generating Image...</span>
-                        <div class="kazuma-bar-container">
-                            <div class="kazuma-bar-fill"></div>
-                        </div>
-                    </div>
-                </div>
+            <div id="kazuma_progress_overlay">
+            <div style="flex:1">
+            <span id="kazuma_progress_text">Generating Image...</span>
+            <div class="kazuma-bar-container">
+            <div class="kazuma-bar-fill"></div>
+            </div>
+            </div>
+            </div>
             `);
         }
 
@@ -868,7 +865,36 @@ jQuery(async () => {
 // Helpers (Condensed)
 function onMessageReceived(id) { if (!extension_settings[extensionName].enabled || !extension_settings[extensionName].autoGenEnabled) return; const chat = getContext().chat; if (!chat || !chat.length) return; if (chat[chat.length - 1].is_user || chat[chat.length - 1].is_system) return; const aiMsgCount = chat.filter(m => !m.is_user && !m.is_system).length; const freq = parseInt(extension_settings[extensionName].autoGenFreq) || 1; if (aiMsgCount % freq === 0) { console.log(`[${extensionName}] Auto-gen...`); setTimeout(onGeneratePrompt, 500); } }
 function createChatButton() { if ($("#kazuma_quick_gen").length > 0) return; const b = `<div id="kazuma_quick_gen" class="interactable" title="Visualize" style="cursor: pointer; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; margin-right: 5px; opacity: 0.7;"><i class="fa-solid fa-paintbrush fa-lg"></i></div>`; let t = $("#send_but_sheld"); if (!t.length) t = $("#send_textarea"); if (t.length) { t.attr("id") === "send_textarea" ? t.before(b) : t.prepend(b); } }
-function populateProfiles() { const s=$("#kazuma_profile"),o=$("#settings_preset_openai").find("option");s.empty().append('<option value="">-- Use Current Settings --</option>');if(o.length)o.each(function(){s.append(`<option value="${$(this).val()}">${$(this).text()}</option>`)});if(extension_settings[extensionName].connectionProfile)s.val(extension_settings[extensionName].connectionProfile);}
+
+// --- CONNECTION PROFILES (real ST profiles, not completion presets) ---
+function isConnectionManagerActive() {
+    // The Connection Manager extension stores its profile list here when active.
+    return Array.isArray(getContext()?.extensionSettings?.connectionManager?.profiles);
+}
+
+function getConnectionProfiles() {
+    if (!isConnectionManagerActive()) return [];
+    return getContext().extensionSettings.connectionManager.profiles;
+}
+
+function populateProfiles() {
+    const $sel = $("#kazuma_profile");
+    $sel.empty().append('<option value="">-- Use Current Connection --</option>');
+
+    if (!isConnectionManagerActive()) {
+        $sel.append('<option value="" disabled>(Connection Profiles extension not active)</option>');
+        return;
+    }
+
+    getConnectionProfiles().forEach((p) => {
+        $sel.append(`<option value="${p.id}">${p.name}</option>`);
+    });
+
+    if (extension_settings[extensionName].connectionProfile) {
+        $sel.val(extension_settings[extensionName].connectionProfile);
+    }
+}
+
 async function onFileSelected(e) { const f=e.target.files[0];if(!f)return;const t=await f.text();try{const j=JSON.parse(t),n=prompt("Name:",f.name.replace(".json",""));if(n){extension_settings[extensionName].savedWorkflows[n]=j;extension_settings[extensionName].currentWorkflowName=n;saveSettingsDebounced();populateWorkflows();}}catch{toastr.error("Invalid JSON");}$(e.target).val('');}
 function showKazumaProgress(text = "Processing...") {
     $("#kazuma_progress_text").text(text);
@@ -878,6 +904,7 @@ function showKazumaProgress(text = "Processing...") {
 function hideKazumaProgress() {
     $("#kazuma_progress_overlay").hide();
 }
+
 /* --- WORKFLOW CONTEXT MANAGERS --- */
 function getWorkflowState() {
     const s = extension_settings[extensionName];
@@ -941,4 +968,3 @@ function applyWorkflowState(state) {
     $("#kazuma_lora_wt_3").val(s.selectedLoraWt3); $("#kazuma_lora_wt_display_3").text(s.selectedLoraWt3);
     $("#kazuma_lora_wt_4").val(s.selectedLoraWt4); $("#kazuma_lora_wt_display_4").text(s.selectedLoraWt4);
 }
-
