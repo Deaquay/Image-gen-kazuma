@@ -62,7 +62,7 @@ const defaultSettings = {
     debugPrompt: false,
     comfyUrl: "http://127.0.0.1:8188",
     connectionProfile: "",
-    currentWorkflowName: "", // Server manages this now
+    currentWorkflowName: "",
     selectedModel: "",
     selectedLora: "",
     selectedLora2: "",
@@ -88,7 +88,19 @@ const defaultSettings = {
     promptStyle: "standard",
     promptPerspective: "scene",
     promptExtra: "",
-    savedWorkflowStates: {}
+    savedWorkflowStates: {},
+    imageGenPreset: "Default",
+    imageGenPresets: {
+        "Default": {
+            name: "Default",
+            systemPrompt: "You are an AI assistant specialized in generating image generation prompts based on conversation context.\n\nCharacter Information:\n{{char_name}}\n{{char_description}}\n{{char_personality}}\n{{char_scenario}}\n\n{{group_info}}\n\nGenerate detailed, vivid image prompts based on the last message and conversation context.",
+            includeLastMessages: 10,
+            includeCharInfo: true,
+            customSystemPrompt: "",
+            temperature: 0.7,
+            maxTokens: 150
+        }
+    }
 };
 
 async function loadSettings() {
@@ -135,6 +147,7 @@ async function loadSettings() {
     populateResolutions();
     populateProfiles();
     populateWorkflows();
+    loadImageGenPresets();
     await fetchComfyLists();
 }
 
@@ -199,6 +212,230 @@ async function populateWorkflows() {
     } catch (e) {
         sel.append('<option disabled>Failed to load</option>');
     }
+}
+
+function loadImageGenPresets() {
+    const settings = extension_settings[extensionName];
+    if (!settings.imageGenPresets || Object.keys(settings.imageGenPresets).length === 0) {
+        settings.imageGenPresets = {
+            "Default": {
+                name: "Default",
+                systemPrompt: `You are an AI assistant specialized in generating image generation prompts based on conversation context.
+
+                Character Information:
+                {{char_name}}
+                {{char_description}}
+                {{char_personality}}
+                {{char_scenario}}
+
+                {{group_info}}
+
+                Generate detailed, vivid image prompts based on the last message and conversation context.`,
+                includeLastMessages: 10,
+                includeCharInfo: true,
+                customSystemPrompt: "",
+                temperature: 0.7,
+                maxTokens: 150
+            }
+        };
+        settings.imageGenPreset = "Default";
+        saveSettingsDebounced();
+    }
+    populateImageGenPresets();
+}
+
+function populateImageGenPresets() {
+    const $sel = $("#kazuma_image_gen_preset");
+    if (!$sel.length) return; // Guard if HTML not loaded yet
+
+    $sel.empty();
+    const presets = extension_settings[extensionName].imageGenPresets || {};
+    Object.keys(presets).forEach(name => {
+        $sel.append(`<option value="${name}">${name}</option>`);
+    });
+
+    const currentPreset = extension_settings[extensionName].imageGenPreset;
+    if (currentPreset && presets[currentPreset]) {
+        $sel.val(currentPreset);
+    } else if (Object.keys(presets).length > 0) {
+        $sel.val(Object.keys(presets)[0]);
+    }
+}
+
+async function editImageGenPreset(presetName = null) {
+    const settings = extension_settings[extensionName];
+    const presets = settings.imageGenPresets || {};
+
+    let preset;
+    if (presetName && presets[presetName]) {
+        preset = JSON.parse(JSON.stringify(presets[presetName]));
+    } else {
+        preset = {
+            name: presetName || "New Preset",
+            systemPrompt: settings.imageGenPresets["Default"]?.systemPrompt || "",
+            includeLastMessages: 10,
+            includeCharInfo: true,
+            customSystemPrompt: "",
+            temperature: 0.7,
+            maxTokens: 150
+        };
+    }
+
+    const $content = $(`
+    <div style="display:flex;flex-direction:column;gap:10px;width:100%;">
+    <div>
+    <label><b>Preset Name:</b></label>
+    <input type="text" class="text_pole kazuma_preset_name" value="${preset.name}" style="width:100%;">
+    </div>
+    <div>
+    <label>
+    <input type="checkbox" class="kazuma_preset_char_info" ${preset.includeCharInfo ? 'checked' : ''}>
+    <b>Include Character Information</b>
+    </label>
+    </div>
+    <div>
+    <label><b>Messages to include (0 = none):</b></label>
+    <input type="number" class="text_pole kazuma_preset_msg_count" value="${preset.includeLastMessages}" min="0" max="50" style="width:100px;">
+    </div>
+    <div>
+    <label><b>System Prompt (placeholders: <code>{{char_name}}</code>, <code>{{char_description}}</code>, etc.):</b></label>
+    <textarea class="text_pole kazuma_preset_system" rows="8" style="width:100%;font-family:monospace;font-size:12px;">${preset.systemPrompt || ''}</textarea>
+    </div>
+    <div>
+    <label><b>Custom System Prompt Override (empty = use above):</b></label>
+    <textarea class="text_pole kazuma_preset_custom" rows="3" style="width:100%;font-family:monospace;font-size:12px;">${preset.customSystemPrompt || ''}</textarea>
+    </div>
+    <div style="display:flex;gap:10px;">
+    <div style="flex:1;">
+    <label><b>Temperature: <span class="kazuma_preset_temp_val">${preset.temperature}</span></b></label>
+    <input type="range" class="kazuma_preset_temp" value="${preset.temperature}" min="0" max="2" step="0.1" style="width:100%;">
+    </div>
+    <div style="flex:1;">
+    <label><b>Max Tokens:</b></label>
+    <input type="number" class="text_pole kazuma_preset_tokens" value="${preset.maxTokens}" min="10" max="500" style="width:100px;">
+    </div>
+    </div>
+    </div>
+    `);
+
+    $content.find('.kazuma_preset_temp').on('input', function() {
+        $content.find('.kazuma_preset_temp_val').text($(this).val());
+    });
+
+    const popup = new Popup($content, POPUP_TYPE.CONFIRM, 'Edit Image Gen Context Preset', { okButton: 'Save', cancelButton: 'Cancel' });
+    const confirmed = await popup.show();
+
+    if (confirmed) {
+        const newName = $content.find('.kazuma_preset_name').val().trim();
+        if (!newName) return toastr.error("Preset name required");
+
+        if (preset.name !== newName && presets[preset.name]) {
+            delete presets[preset.name];
+        }
+
+        presets[newName] = {
+            name: newName,
+            includeCharInfo: $content.find('.kazuma_preset_char_info').prop('checked'),
+            includeLastMessages: parseInt($content.find('.kazuma_preset_msg_count').val()) || 0,
+            systemPrompt: $content.find('.kazuma_preset_system').val(),
+            customSystemPrompt: $content.find('.kazuma_preset_custom').val(),
+            temperature: parseFloat($content.find('.kazuma_preset_temp').val()),
+            maxTokens: parseInt($content.find('.kazuma_preset_tokens').val()) || 150
+        };
+
+        settings.imageGenPresets = presets;
+        settings.imageGenPreset = newName;
+        saveSettingsDebounced();
+        populateImageGenPresets();
+        toastr.success(`Preset "${newName}" saved!`);
+    }
+}
+
+async function deleteImageGenPreset() {
+    const settings = extension_settings[extensionName];
+    const presets = settings.imageGenPresets || {};
+    const currentPreset = settings.imageGenPreset;
+
+    if (!currentPreset || !presets[currentPreset]) return;
+    if (Object.keys(presets).length <= 1) return toastr.warning("Cannot delete the last preset");
+
+    if (confirm(`Delete preset "${currentPreset}"?`)) {
+        delete presets[currentPreset];
+        settings.imageGenPreset = Object.keys(presets)[0];
+        saveSettingsDebounced();
+        populateImageGenPresets();
+        toastr.success("Preset deleted");
+    }
+}
+
+function buildSystemPromptFromPreset() {
+    const settings = extension_settings[extensionName];
+    const presets = settings.imageGenPresets || {};
+    const presetName = settings.imageGenPreset;
+    const preset = presets[presetName] || presets["Default"];
+    if (!preset) return "";
+
+    if (preset.customSystemPrompt && preset.customSystemPrompt.trim()) {
+        return preset.customSystemPrompt;
+    }
+
+    let systemPrompt = preset.systemPrompt || '';
+    const context = getContext();
+
+    if (preset.includeCharInfo && systemPrompt) {
+        if (context.characterId && context.characters[context.characterId]) {
+            const char = context.characters[context.characterId];
+            systemPrompt = systemPrompt
+            .replace(/\{\{char_name\}\}/g, char.name || '')
+            .replace(/\{\{char_description\}\}/g, char.description || '')
+            .replace(/\{\{char_personality\}\}/g, char.personality || '')
+            .replace(/\{\{char_scenario\}\}/g, char.scenario || '');
+        } else {
+            systemPrompt = systemPrompt
+            .replace(/\{\{char_name\}\}/g, '')
+            .replace(/\{\{char_description\}\}/g, '')
+            .replace(/\{\{char_personality\}\}/g, '')
+            .replace(/\{\{char_scenario\}\}/g, '');
+        }
+
+        if (context.groupId) {
+            const group = context.groups?.find(g => g.id === context.groupId);
+            const groupInfo = group ? `Group chat: ${group.name}` : 'Group chat';
+            systemPrompt = systemPrompt.replace(/\{\{group_info\}\}/g, groupInfo);
+        } else {
+            systemPrompt = systemPrompt.replace(/\{\{group_info\}\}/g, '');
+        }
+    }
+
+    return systemPrompt;
+}
+
+function buildChatHistoryFromPreset() {
+    const settings = extension_settings[extensionName];
+    const presets = settings.imageGenPresets || {};
+    const presetName = settings.imageGenPreset;
+    const preset = presets[presetName] || presets["Default"];
+    if (!preset) return [];
+
+    const context = getContext();
+    const history = [];
+
+    if (preset.includeLastMessages > 0 && context.chat && context.chat.length > 0) {
+        const recentMessages = context.chat.slice(-preset.includeLastMessages);
+
+        for (const msg of recentMessages) {
+            let role = msg.is_user ? "user" : "assistant";
+            let content = msg.mes;
+
+            if (!msg.is_user && !msg.is_system && msg.name) {
+                content = `${msg.name}: ${content}`;
+            }
+
+            history.push({ role, content });
+        }
+    }
+
+    return history;
 }
 
 async function onComfyNewWorkflowClick() {
@@ -489,7 +726,22 @@ async function onGeneratePrompt() {
 
         let generatedText;
         if (useOwnProfile) {
-            const messages = [{ role: "user", content: instruction }];
+            // Build messages using image gen context preset
+            const messages = [];
+
+            // Add system prompt from preset
+            const systemPrompt = buildSystemPromptFromPreset();
+            if (systemPrompt && systemPrompt.trim()) {
+                messages.push({ role: "system", content: systemPrompt });
+            }
+
+            // Add chat history based on preset
+            const chatHistory = buildChatHistoryFromPreset();
+            messages.push(...chatHistory);
+
+            // Add the generation instruction as final user message
+            messages.push({ role: "user", content: instruction });
+
             const result = await context.ConnectionManagerRequestService.sendRequest(requestProfile, messages);
             generatedText = (typeof result === "string") ? result : (result?.content ?? "");
         } else {
@@ -830,6 +1082,21 @@ jQuery(async () => {
         $("#kazuma_negative").on("input", (e) => { extension_settings[extensionName].customNegative = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_seed").on("input", (e) => { extension_settings[extensionName].customSeed = parseInt($(e.target).val()); saveSettingsDebounced(); });
         $("#kazuma_compress").on("change", (e) => { extension_settings[extensionName].compressImages = $(e.target).prop("checked"); saveSettingsDebounced(); });
+
+        $("#kazuma_image_gen_preset").on("change", (e) => {
+            extension_settings[extensionName].imageGenPreset = $(e.target).val();
+            saveSettingsDebounced();
+        });
+
+        $("#kazuma_edit_preset").on("click", () => {
+            editImageGenPreset(extension_settings[extensionName].imageGenPreset);
+        });
+
+        $("#kazuma_new_preset").on("click", () => {
+            editImageGenPreset(null);
+        });
+
+        $("#kazuma_delete_preset").on("click", deleteImageGenPreset);
 
         function bindSlider(id, key, isFloat = false) {
             $(`#${id}`).on("input", function() {

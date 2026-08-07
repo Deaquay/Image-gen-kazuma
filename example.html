@@ -71,6 +71,19 @@
                     <div class="kazuma-sub-label" style="margin-top:0;">Extra Instructions</div>
                     <input type="text" id="kazuma_prompt_extra" class="text_pole" style="width:100%" placeholder="e.g. moody lighting, dark atmosphere...">
                 </div>
+
+                <hr style="opacity:0.2; margin: 10px 0;">
+
+                <div class="kazuma-sub-label">Image Gen Context Preset</div>
+                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Controls what chat history &amp; character info is sent to the prompt generator when using a connection profile</small>
+                <div style="display:flex;gap:5px;margin-bottom:5px;flex-wrap:wrap;">
+                    <select id="kazuma_image_gen_preset" class="text_pole" style="flex:1;min-width:120px;">
+                        <option>Loading...</option>
+                    </select>
+                    <button id="kazuma_edit_preset" class="menu_button" title="Edit selected preset"><i class="fa-solid fa-pen"></i></button>
+                    <button id="kazuma_new_preset" class="menu_button" title="Create new preset"><i class="fa-solid fa-plus"></i></button>
+                    <button id="kazuma_delete_preset" class="menu_button" title="Delete selected preset"><i class="fa-solid fa-trash"></i></button>
+                </div>
             </div>
 
             <!-- Group 3: ComfyUI Connection -->
