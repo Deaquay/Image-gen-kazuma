@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 import { extension_settings, getContext } from "../../../extensions.js";
-import { saveSettingsDebounced, generateQuietPrompt, saveChat, reloadCurrentChat, eventSource, event_types, addOneMessage, getRequestHeaders, appendMediaToMessage } from "../../../../script.js";
+import { saveSettingsDebounced, generateQuietPrompt, saveChat, reloadCurrentChat, eventSource, event_types, addOneMessage, getRequestHeaders, appendMediaToMessage, substituteParams } from "../../../../script.js";
 import { saveBase64AsFile } from "../../../utils.js";
 import { humanizedDateTime } from "../../../RossAscends-mods.js";
 import { Popup, POPUP_TYPE } from "../../../popup.js";
@@ -60,6 +60,7 @@ const defaultWorkflowData = {
 const defaultSettings = {
     enabled: true,
     debugPrompt: false,
+    includeTracker: false,
     comfyUrl: "http://127.0.0.1:8188",
     connectionProfile: "",
     currentWorkflowName: "",
@@ -113,6 +114,7 @@ async function loadSettings() {
 
     $("#kazuma_enable").prop("checked", extension_settings[extensionName].enabled);
     $("#kazuma_debug").prop("checked", extension_settings[extensionName].debugPrompt);
+    $("#kazuma_include_tracker").prop("checked", extension_settings[extensionName].includeTracker);
     $("#kazuma_url").val(extension_settings[extensionName].comfyUrl);
     $("#kazuma_width").val(extension_settings[extensionName].imgWidth);
     $("#kazuma_height").val(extension_settings[extensionName].imgHeight);
@@ -407,7 +409,8 @@ function buildSystemPromptFromPreset() {
         }
     }
 
-    return systemPrompt;
+    // Resolve real ST macros ({{char}}, {{user}}, ...) after the extension's own placeholders above.
+    return substituteParams(systemPrompt);
 }
 
 function buildChatHistoryFromPreset() {
@@ -425,7 +428,7 @@ function buildChatHistoryFromPreset() {
 
         for (const msg of recentMessages) {
             let role = msg.is_user ? "user" : "assistant";
-            let content = msg.mes;
+            let content = substituteParams(msg.mes);
 
             if (!msg.is_user && !msg.is_system && msg.name) {
                 content = `${msg.name}: ${content}`;
@@ -679,6 +682,17 @@ async function onTestConnection() {
 }
 
 /* --- UPDATED GENERATION LOGIC --- */
+// Newest tracker from SillyTavern-Tracker-Enhanced, which stores it on the message itself.
+// ponytail: raw JSON, no import from that extension - keeps this a soft dependency. Switch to its
+// getTracker()/OUTPUT_FORMATS if you want its field filtering or YAML output.
+function getLatestTracker(chat) {
+    for (let i = chat.length - 1; i >= 0; i--) {
+        const t = chat[i]?.tracker;
+        if (t && typeof t === "object" && Object.keys(t).length) return `[Scene state]\n${JSON.stringify(t, null, 2)}\n\n`;
+    }
+    return "";
+}
+
 async function onGeneratePrompt() {
     if (!extension_settings[extensionName].enabled) return;
     const context = getContext();
@@ -701,6 +715,7 @@ async function onGeneratePrompt() {
         toastr.info("Visualizing...", "Image Gen Kazuma");
         const lastMessage = context.chat[context.chat.length - 1].mes;
         const s = extension_settings[extensionName];
+        const tracker = s.includeTracker ? getLatestTracker(context.chat) : "";
 
         const style = s.promptStyle || "standard";
         const persp = s.promptPerspective || "scene";
@@ -715,14 +730,15 @@ async function onGeneratePrompt() {
         else if (persp === "character") perspInst = "Focus intensely on the character's appearance and expression, ignoring background details.";
         else perspInst = "Describe the entire environment and atmosphere.";
 
-        const instruction = `
+        const instruction = substituteParams(`
         Task: Write an image generation prompt for the following scene.
-        Scene: "${lastMessage}"
+        The character is {{char}}; the user/persona is {{user}}.
+        Scene: "${tracker}${lastMessage}"
         Style Constraint: ${styleInst}
         Perspective: ${perspInst}
         Additional Req: ${extra}
         Output ONLY the prompt text.
-        `;
+        `);
 
         let generatedText;
         if (useOwnProfile) {
@@ -1012,6 +1028,7 @@ jQuery(async () => {
 
         $("#kazuma_enable").on("change", (e) => { extension_settings[extensionName].enabled = $(e.target).prop("checked"); saveSettingsDebounced(); });
         $("#kazuma_debug").on("change", (e) => { extension_settings[extensionName].debugPrompt = $(e.target).prop("checked"); saveSettingsDebounced(); });
+        $("#kazuma_include_tracker").on("change", (e) => { extension_settings[extensionName].includeTracker = $(e.target).prop("checked"); saveSettingsDebounced(); });
         $("#kazuma_url").on("input", (e) => { extension_settings[extensionName].comfyUrl = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_profile").on("change", (e) => { extension_settings[extensionName].connectionProfile = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_auto_enable").on("change", (e) => { extension_settings[extensionName].autoGenEnabled = $(e.target).prop("checked"); saveSettingsDebounced(); });
