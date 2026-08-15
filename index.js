@@ -1,6 +1,6 @@
 /* eslint-disable no-undef */
 import { extension_settings, getContext } from "../../../extensions.js";
-import { saveSettingsDebounced, generateQuietPrompt, saveChat, reloadCurrentChat, eventSource, event_types, addOneMessage, getRequestHeaders, appendMediaToMessage, substituteParams } from "../../../../script.js";
+import { saveSettingsDebounced, generateQuietPrompt, saveChat, reloadCurrentChat, eventSource, event_types, addOneMessage, getRequestHeaders, appendMediaToMessage, substituteParams, getCurrentChatId } from "../../../../script.js";
 import { saveBase64AsFile } from "../../../utils.js";
 import { humanizedDateTime } from "../../../RossAscends-mods.js";
 import { Popup, POPUP_TYPE } from "../../../popup.js";
@@ -905,14 +905,40 @@ async function onImageSwiped(data) {
     await generateWithComfy(prompt, { message: message, element: $(element) });
 }
 
+// ponytail: 20 min at 1s ticks. Without a cap a prompt that never lands (ComfyUI restarted,
+// queue cleared) polls until the tab closes.
+const MAX_POLL_TICKS = 1200;
+
 async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
     // [UPDATE TEXT]
     showKazumaProgress("Rendering Image...");
 
+    // Pin the chat this generation belongs to. saveChat() writes the live chat array to whatever
+    // chat is loaded now, so finishing a generation after the user moved on must not write at all.
+    const originChatId = getCurrentChatId();
+
     // ponytail: async ticks overlap when ComfyUI is busy (e.g. rendering video), so guard both ends
-    let polling = false, finished = false;
+    let polling = false, finished = false, ticks = 0;
     const checkInterval = setInterval(async () => {
         if (polling || finished) return;
+
+        if (getCurrentChatId() !== originChatId) {
+            finished = true;
+            clearInterval(checkInterval);
+            hideKazumaProgress();
+            console.warn(`[${extensionName}] chat changed while rendering prompt_id=${promptId}; abandoning insert`);
+            toastr.warning("Chat changed while the image was rendering - it was not inserted.", "Image Gen Kazuma");
+            return;
+        }
+
+        if (++ticks > MAX_POLL_TICKS) {
+            finished = true;
+            clearInterval(checkInterval);
+            hideKazumaProgress();
+            toastr.error("Timed out waiting for ComfyUI.", "Image Gen Kazuma");
+            return;
+        }
+
         polling = true;
         try {
             const h = await (await fetch(`${baseUrl}/history/${promptId}`)).json();
@@ -934,7 +960,7 @@ async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
 
                     console.log(`[${extensionName}] complete prompt_id=${promptId} file=${finalImage.filename}`);
                     const imgUrl = `${baseUrl}/view?filename=${finalImage.filename}&subfolder=${finalImage.subfolder}&type=${finalImage.type}`;
-                    await insertImageToChat(imgUrl, positivePrompt, target);
+                    await insertImageToChat(imgUrl, positivePrompt, target, originChatId);
 
                     // [HIDE WHEN DONE]
                     hideKazumaProgress();
@@ -965,7 +991,7 @@ function compressImage(base64Str, quality = 0.9) {
 }
 
 // --- SAVE TO SERVER ---
-async function insertImageToChat(imgUrl, promptText, target = null) {
+async function insertImageToChat(imgUrl, promptText, target = null, originChatId = getCurrentChatId()) {
     try {
         toastr.info("Downloading image...", "Image Gen Kazuma");
         const response = await fetch(imgUrl);
@@ -998,6 +1024,15 @@ async function insertImageToChat(imgUrl, promptText, target = null) {
             title: promptText,
             generation_type: "free",
         };
+
+        // Downloading, compressing and saving the image took a while. If the user switched chats in
+        // the meantime, target.message points into the old chat array and saveChat() would write the
+        // now-current chat - so stop here. The image is already on disk under its character folder.
+        if (getCurrentChatId() !== originChatId) {
+            console.warn(`[${extensionName}] chat changed during image save; not inserting. Image kept at ${savedPath}`);
+            toastr.warning("Chat changed during download - image saved to disk but not inserted.", "Image Gen Kazuma");
+            return;
+        }
 
         if (target && target.message) {
             if (!target.message.extra) target.message.extra = {};
