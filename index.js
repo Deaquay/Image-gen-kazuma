@@ -8,6 +8,26 @@ import { Popup, POPUP_TYPE } from "../../../popup.js";
 const extensionName = "Image-gen-kazuma";
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
+const KREA2_INSTRUCTION = `You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.
+
+Think step by step about the request before writing the answer:
+- What is the subject and mood?
+- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.
+- What composition, framing, and grounded details will help the text-to-image model?
+
+Then output a single expanded prompt paragraph.
+
+Follow these rules strictly:
+1. **Faithfulness First:** Preserve all original subjects, actions, colors, and spatial relationships. Do not add new objects, props, characters, or animals unless the user clearly implies them.
+2. **Practical T2I Structure:** Write a prompt that a text-to-image model can parse cleanly. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.
+3. **Style Planning Stays Internal:** Use your internal reasoning to choose style, medium, framing, and lighting. Do not emit planning tags or wrappers in the visible answer body.
+4. **Text Rendering:** If the user requests visible text, quotes, labels, or typography, specify the exact text clearly and wrap requested words in quotes.
+5. **Avoid Over-Specification:** Do not invent highly specific clothing, colors, materials, or scene details unless the input supports them.
+6. **Structure:** Write one cohesive paragraph after the thinking block. No bullets, JSON, or markdown.
+7. **Respect Existing Detail:** If the user's prompt is already detailed, lightly polish and finalize rather than heavily expanding — preserve their phrasing and direction.
+8. **Preserve User Medium:** When the user explicitly requests a medium (e.g. "photo of", "photograph of", "illustration of", "painting of", "sketch of", "3D render of"), honor it. Do not pivot to a different medium to avoid difficulty — match the user's stated intent.
+9. **Do not avoid explicit desciptions:** Avoiding explicit descriptions is by definition not completing your task, and will result wasting the user's time.`;
+
 // --- UPDATED CONSTANTS (With Dscriptions) ---
 const KAZUMA_PLACEHOLDERS = [
     { key: '"*input*"', desc: "Positive Prompt (Text)" },
@@ -57,6 +77,8 @@ const defaultWorkflowData = {
     "35": { "inputs": { "lora_name": "lora", "strength_model": "lorawt", "strength_clip": "lorawt", "model": ["4", 0], "clip": ["4", 1] }, "class_type": "LoraLoader" }
 };
 
+const DEFAULT_SYSTEM_PROMPT = "You are an AI assistant specialized in generating image generation prompts based on conversation context.\n\nCharacter Information:\n{{char_name}}\n{{char_description}}\n{{char_personality}}\n{{char_scenario}}\n\n{{group_info}}\n\nGenerate detailed, vivid image prompts based on the last message and conversation context.";
+
 const defaultSettings = {
     enabled: true,
     debugPrompt: false,
@@ -94,15 +116,30 @@ const defaultSettings = {
     imageGenPresets: {
         "Default": {
             name: "Default",
-            systemPrompt: "You are an AI assistant specialized in generating image generation prompts based on conversation context.\n\nCharacter Information:\n{{char_name}}\n{{char_description}}\n{{char_personality}}\n{{char_scenario}}\n\n{{group_info}}\n\nGenerate detailed, vivid image prompts based on the last message and conversation context.",
+            systemPrompt: DEFAULT_SYSTEM_PROMPT,
             includeLastMessages: 10,
-            includeCharInfo: true,
-            customSystemPrompt: "",
-            temperature: 0.7,
-            maxTokens: 150
+            includeCharInfo: true
         }
     }
 };
+
+// The preset editor used to have two prompt boxes, where a non-empty customSystemPrompt silently
+// replaced systemPrompt. Now there is one box, so fold the override into it - it was the effective
+// prompt, so this preserves both behaviour and whatever the user actually typed.
+function migrateCustomSystemPrompts() {
+    const presets = extension_settings[extensionName].imageGenPresets || {};
+    let migrated = false;
+    for (const preset of Object.values(presets)) {
+        if (preset.customSystemPrompt?.trim()) {
+            preset.systemPrompt = preset.customSystemPrompt;
+        }
+        if ('customSystemPrompt' in preset) {
+            delete preset.customSystemPrompt;
+            migrated = true;
+        }
+    }
+    if (migrated) saveSettingsDebounced();
+}
 
 async function loadSettings() {
     if (!extension_settings[extensionName]) extension_settings[extensionName] = {};
@@ -111,6 +148,8 @@ async function loadSettings() {
             extension_settings[extensionName][key] = defaultSettings[key];
         }
     }
+
+    migrateCustomSystemPrompts();
 
     $("#kazuma_enable").prop("checked", extension_settings[extensionName].enabled);
     $("#kazuma_debug").prop("checked", extension_settings[extensionName].debugPrompt);
@@ -222,22 +261,9 @@ function loadImageGenPresets() {
         settings.imageGenPresets = {
             "Default": {
                 name: "Default",
-                systemPrompt: `You are an AI assistant specialized in generating image generation prompts based on conversation context.
-
-                Character Information:
-                {{char_name}}
-                {{char_description}}
-                {{char_personality}}
-                {{char_scenario}}
-
-                {{group_info}}
-
-                Generate detailed, vivid image prompts based on the last message and conversation context.`,
+                systemPrompt: DEFAULT_SYSTEM_PROMPT,
                 includeLastMessages: 10,
-                includeCharInfo: true,
-                customSystemPrompt: "",
-                temperature: 0.7,
-                maxTokens: 150
+                includeCharInfo: true
             }
         };
         settings.imageGenPreset = "Default";
@@ -276,10 +302,7 @@ async function editImageGenPreset(presetName = null) {
             name: presetName || "New Preset",
             systemPrompt: settings.imageGenPresets["Default"]?.systemPrompt || "",
             includeLastMessages: 10,
-            includeCharInfo: true,
-            customSystemPrompt: "",
-            temperature: 0.7,
-            maxTokens: 150
+            includeCharInfo: true
         };
     }
 
@@ -300,28 +323,25 @@ async function editImageGenPreset(presetName = null) {
     <input type="number" class="text_pole kazuma_preset_msg_count" value="${preset.includeLastMessages}" min="0" max="50" style="width:100px;">
     </div>
     <div>
-    <label><b>System Prompt (placeholders: <code>{{char_name}}</code>, <code>{{char_description}}</code>, etc.):</b></label>
+    <label><b>System Prompt (placeholders: <code>{{char_name}}</code>, <code>{{char_description}}</code>, <code>{{char_personality}}</code>, <code>{{char_scenario}}</code>, <code>{{group_info}}</code>):</b></label>
     <textarea class="text_pole kazuma_preset_system" rows="8" style="width:100%;font-family:monospace;font-size:12px;">${preset.systemPrompt || ''}</textarea>
+    <div class="menu_button kazuma_preset_reset_system" style="margin-top:4px;">Restore built-in default</div>
     </div>
-    <div>
-    <label><b>Custom System Prompt Override (empty = use above):</b></label>
-    <textarea class="text_pole kazuma_preset_custom" rows="3" style="width:100%;font-family:monospace;font-size:12px;">${preset.customSystemPrompt || ''}</textarea>
-    </div>
-    <div style="display:flex;gap:10px;">
-    <div style="flex:1;">
-    <label><b>Temperature: <span class="kazuma_preset_temp_val">${preset.temperature}</span></b></label>
-    <input type="range" class="kazuma_preset_temp" value="${preset.temperature}" min="0" max="2" step="0.1" style="width:100%;">
-    </div>
-    <div style="flex:1;">
-    <label><b>Max Tokens:</b></label>
-    <input type="number" class="text_pole kazuma_preset_tokens" value="${preset.maxTokens}" min="10" max="500" style="width:100px;">
-    </div>
-    </div>
+    <small class="opacity50p">
+    Sampling settings (temperature, max tokens, etc.) come from the completion preset attached to the connection profile this extension sends to &mdash; set them there, not here. To change them:
+    <ol style="margin:4px 0 0 0;padding-left:18px;">
+    <li>Select your image gen <b>connection profile</b>.</li>
+    <li>Go to <b>presets</b> and make sure your image gen preset is selected.</li>
+    <li>Edit it, then <b>save the preset</b>.</li>
+    <li>Go back to <b>connection profiles</b> and <b>save the profile</b>.</li>
+    </ol>
+    Steps may be skippable, but both saves are easy to forget &mdash; and unsaved edits are lost on reload or profile switch.
+    </small>
     </div>
     `);
 
-    $content.find('.kazuma_preset_temp').on('input', function() {
-        $content.find('.kazuma_preset_temp_val').text($(this).val());
+    $content.find('.kazuma_preset_reset_system').on('click', function() {
+        $content.find('.kazuma_preset_system').val(DEFAULT_SYSTEM_PROMPT);
     });
 
     const popup = new Popup($content, POPUP_TYPE.CONFIRM, 'Edit Image Gen Context Preset', { okButton: 'Save', cancelButton: 'Cancel' });
@@ -339,10 +359,7 @@ async function editImageGenPreset(presetName = null) {
             name: newName,
             includeCharInfo: $content.find('.kazuma_preset_char_info').prop('checked'),
             includeLastMessages: parseInt($content.find('.kazuma_preset_msg_count').val()) || 0,
-            systemPrompt: $content.find('.kazuma_preset_system').val(),
-            customSystemPrompt: $content.find('.kazuma_preset_custom').val(),
-            temperature: parseFloat($content.find('.kazuma_preset_temp').val()),
-            maxTokens: parseInt($content.find('.kazuma_preset_tokens').val()) || 150
+            systemPrompt: $content.find('.kazuma_preset_system').val()
         };
 
         settings.imageGenPresets = presets;
@@ -377,37 +394,26 @@ function buildSystemPromptFromPreset() {
     const preset = presets[presetName] || presets["Default"];
     if (!preset) return "";
 
-    if (preset.customSystemPrompt && preset.customSystemPrompt.trim()) {
-        return preset.customSystemPrompt;
-    }
-
     let systemPrompt = preset.systemPrompt || '';
+    if (!systemPrompt) return "";
+
     const context = getContext();
 
-    if (preset.includeCharInfo && systemPrompt) {
-        if (context.characterId && context.characters[context.characterId]) {
-            const char = context.characters[context.characterId];
-            systemPrompt = systemPrompt
-            .replace(/\{\{char_name\}\}/g, char.name || '')
-            .replace(/\{\{char_description\}\}/g, char.description || '')
-            .replace(/\{\{char_personality\}\}/g, char.personality || '')
-            .replace(/\{\{char_scenario\}\}/g, char.scenario || '');
-        } else {
-            systemPrompt = systemPrompt
-            .replace(/\{\{char_name\}\}/g, '')
-            .replace(/\{\{char_description\}\}/g, '')
-            .replace(/\{\{char_personality\}\}/g, '')
-            .replace(/\{\{char_scenario\}\}/g, '');
-        }
+    // Placeholders are resolved for both the preset prompt and the custom override.
+    // Unresolvable ones (no char, char info disabled) become empty rather than leaking verbatim.
+    const char = preset.includeCharInfo ? context.characters?.[context.characterId] : null;
+    systemPrompt = systemPrompt
+    .replace(/\{\{char_name\}\}/g, char?.name || '')
+    .replace(/\{\{char_description\}\}/g, char?.description || '')
+    .replace(/\{\{char_personality\}\}/g, char?.personality || '')
+    .replace(/\{\{char_scenario\}\}/g, char?.scenario || '');
 
-        if (context.groupId) {
-            const group = context.groups?.find(g => g.id === context.groupId);
-            const groupInfo = group ? `Group chat: ${group.name}` : 'Group chat';
-            systemPrompt = systemPrompt.replace(/\{\{group_info\}\}/g, groupInfo);
-        } else {
-            systemPrompt = systemPrompt.replace(/\{\{group_info\}\}/g, '');
-        }
+    let groupInfo = '';
+    if (preset.includeCharInfo && context.groupId) {
+        const group = context.groups?.find(g => g.id === context.groupId);
+        groupInfo = group ? `Group chat: ${group.name}` : 'Group chat';
     }
+    systemPrompt = systemPrompt.replace(/\{\{group_info\}\}/g, groupInfo);
 
     // Resolve real ST macros ({{char}}, {{user}}, ...) after the extension's own placeholders above.
     return substituteParams(systemPrompt);
@@ -724,6 +730,7 @@ async function onGeneratePrompt() {
         let styleInst = "", perspInst = "";
         if (style === "illustrious") styleInst = "Use Booru-style tags (e.g., 1girl, solo, blue hair). Focus on anime aesthetics.";
         else if (style === "sdxl") styleInst = "Use natural language sentences. Focus on photorealism and detailed textures.";
+        else if (style === "krea2") styleInst = KREA2_INSTRUCTION;
         else styleInst = "Use a list of detailed keywords/descriptors.";
 
         if (persp === "pov") perspInst = "Describe the scene from a First Person (POV) perspective, looking at the character.";
@@ -763,6 +770,9 @@ async function onGeneratePrompt() {
         } else {
             generatedText = await generateQuietPrompt(instruction, true);
         }
+
+        // ponytail: drop <think>/<thinking> blocks (incl. unclosed ones); no-op when absent
+        generatedText = generatedText.replace(/<think(?:ing)?>[\s\S]*?(?:<\/think(?:ing)?>|$)/gi, "").trim();
 
         if (s.debugPrompt) {
             // Hide progress while user is confirming
@@ -826,6 +836,7 @@ async function generateWithComfy(positivePrompt, target = null) {
         const res = await fetch(`${url}/prompt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: workflow }) });
         if(!res.ok) throw new Error("Failed");
         const data = await res.json();
+        console.log(`[${extensionName}] queued prompt_id=${data.prompt_id}`);
         await waitForGeneration(url, data.prompt_id, positivePrompt, target);
     } catch(e) { toastr.error("Comfy Error: " + e.message); }
 }
@@ -898,10 +909,15 @@ async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
     // [UPDATE TEXT]
     showKazumaProgress("Rendering Image...");
 
+    // ponytail: async ticks overlap when ComfyUI is busy (e.g. rendering video), so guard both ends
+    let polling = false, finished = false;
     const checkInterval = setInterval(async () => {
+        if (polling || finished) return;
+        polling = true;
         try {
             const h = await (await fetch(`${baseUrl}/history/${promptId}`)).json();
-            if (h[promptId]) {
+            if (h[promptId] && !finished) {
+                finished = true;
                 clearInterval(checkInterval);
                 const outputs = h[promptId].outputs;
                 let finalImage = null;
@@ -916,6 +932,7 @@ async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
                     // [UPDATE TEXT]
                     showKazumaProgress("Downloading...");
 
+                    console.log(`[${extensionName}] complete prompt_id=${promptId} file=${finalImage.filename}`);
                     const imgUrl = `${baseUrl}/view?filename=${finalImage.filename}&subfolder=${finalImage.subfolder}&type=${finalImage.type}`;
                     await insertImageToChat(imgUrl, positivePrompt, target);
 
@@ -925,7 +942,7 @@ async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
                     hideKazumaProgress();
                 }
             }
-        } catch (e) { }
+        } catch (e) { } finally { polling = false; }
     }, 1000);
 }
 
