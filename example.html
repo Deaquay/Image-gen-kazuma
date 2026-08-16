@@ -93,6 +93,16 @@
 
             <!-- Group 3: ComfyUI Connection -->
             <div class="kazuma-group">
+                <div class="kazuma-header"><i class="fa-solid fa-id-badge"></i> Image Profile</div>
+                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Workflow, LoRAs and every image parameter in one set. Link a profile to characters or chats and it swaps itself in when you open them.</small>
+                <div style="display:flex; gap:5px;">
+                    <select id="kazuma_image_profile" class="text_pole" style="flex:1"></select>
+                    <button id="kazuma_manage_profiles" class="menu_button" title="Manage profiles &amp; links"><i class="fa-solid fa-users-gear"></i></button>
+                </div>
+                <div id="kazuma_profile_links" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;"></div>
+            </div>
+
+            <div class="kazuma-group">
                 <div class="kazuma-header"><i class="fa-solid fa-link"></i> ComfyUI Server</div>
 
                 <div style="display:flex; gap: 5px; margin-bottom: 10px;">
@@ -119,6 +129,11 @@
                     <div class="kazuma-row" style="margin-top:10px;">
                         <span>Sampler</span>
                         <select id="kazuma_sampler_list" class="text_pole" style="width: 60%"></select>
+                    </div>
+
+                    <div class="kazuma-row" style="margin-top:10px;">
+                        <span>Scheduler</span>
+                        <select id="kazuma_scheduler_list" class="text_pole" style="width: 60%"></select>
                     </div>
 
                     <hr style="opacity:0.2; margin: 10px 0;">
@@ -163,44 +178,12 @@
 
             <!-- Collapsible 2: LoRA Lab -->
             <details class="kazuma-details">
-                <summary><i class="fa-solid fa-flask"></i> LoRA Lab (4 Slots)</summary>
+                <summary><i class="fa-solid fa-flask"></i> LoRA Lab</summary>
                 <div class="kazuma-content">
-                    <!-- Slot 1 -->
-                    <div class="kazuma-lora-box">
-                        <div class="kazuma-sub-label">LoRA 1</div>
-                        <select id="kazuma_lora_list" class="text_pole" style="width:100%"></select>
-                        <div class="kazuma-slider-row" style="margin-top:5px;">
-                            <span>Wt: <span id="kazuma_lora_wt_display">1.0</span></span>
-                            <input type="range" id="kazuma_lora_wt" min="-2" max="2" step="0.1">
-                        </div>
-                    </div>
-                    <!-- Slot 2 -->
-                     <div class="kazuma-lora-box">
-                        <div class="kazuma-sub-label">LoRA 2</div>
-                        <select id="kazuma_lora_list_2" class="text_pole" style="width:100%"></select>
-                        <div class="kazuma-slider-row" style="margin-top:5px;">
-                            <span>Wt: <span id="kazuma_lora_wt_display_2">1.0</span></span>
-                            <input type="range" id="kazuma_lora_wt_2" min="-2" max="2" step="0.1">
-                        </div>
-                    </div>
-                    <!-- Slot 3 -->
-                    <div class="kazuma-lora-box">
-                        <div class="kazuma-sub-label">LoRA 3</div>
-                        <select id="kazuma_lora_list_3" class="text_pole" style="width:100%"></select>
-                        <div class="kazuma-slider-row" style="margin-top:5px;">
-                            <span>Wt: <span id="kazuma_lora_wt_display_3">1.0</span></span>
-                            <input type="range" id="kazuma_lora_wt_3" min="-2" max="2" step="0.1">
-                        </div>
-                    </div>
-                    <!-- Slot 4 -->
-                    <div class="kazuma-lora-box">
-                        <div class="kazuma-sub-label">LoRA 4</div>
-                        <select id="kazuma_lora_list_4" class="text_pole" style="width:100%"></select>
-                        <div class="kazuma-slider-row" style="margin-top:5px;">
-                            <span>Wt: <span id="kazuma_lora_wt_display_4">1.0</span></span>
-                            <input type="range" id="kazuma_lora_wt_4" min="-2" max="2" step="0.1">
-                        </div>
-                    </div>
+                    <div id="kazuma_lora_quick"></div>
+                    <button id="kazuma_manage_loras" class="menu_button" style="width:100%; margin-top:10px;">
+                        <i class="fa-solid fa-sliders"></i> Manage LoRAs
+                    </button>
                 </div>
             </details>
 

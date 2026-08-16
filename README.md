@@ -10,7 +10,7 @@ Image Gen Kazuma is a power-user extension designed to seamlessly bridge **Silly
 
 ### 🧠 Smart & Context-Aware
 *   **Smart Prompting Logic:** Automatically formats prompts based on your preferred model style (e.g., Booru tags for Pony/Illustrious vs. Natural Language for SDXL/qwen) and camera perspective.
-*   **Workflow Context Switching:** The extension remembers your settings (Steps, CFG, LoRAs) *per workflow*. Switch from an SDXL workflow to an SD1.5 workflow, and all your sliders instantly snap to your last used configuration for that file.
+*   **Image Profiles:** A profile is one workflow plus everything that has to travel with it — checkpoint, sampler, scheduler, steps/CFG/denoise/CLIP, resolution, negative prompt and the whole LoRA list. Link a profile to characters (by avatar file, so two Lyras never collide), to groups, or to one specific chat, and it swaps itself in when you open them. Two profiles can share a workflow with completely different parameters.
 *   **Diagnostic Mode:** Preview and edit the exact prompt the LLM generated before sending it to the image server.
 
 ### 🛠️ Advanced Workflow Studio
@@ -80,15 +80,23 @@ In the Workflow Studio, you will see the raw JSON. You must replace specific har
 | `"*steps*"` | Step Count | Linked to the Steps slider. |
 | `"*cfg*"` | CFG Float | Linked to the CFG slider. |
 | `"*model*"` | Checkpoint Name | Linked to the Model dropdown. |
-| `"*sampler*"` | Sampler Name | Linked to the Model dropdown. |
+| `"*sampler*"` | Sampler Name | Linked to the Sampler dropdown. |
+| `"*scheduler*"` | Scheduler Name | Linked to the Scheduler dropdown. |
 | `"*width*"` | Width Integer | Image resolution width. |
 | `"*height*"` | Height Integer | Image resolution height. |
-| `"*lora*"` | LoRA Name | **LoRA Slot 1** filename. |
-| `"*lorawt*"` | LoRA Strength | **LoRA Slot 1** weight (model & clip). |
-| `"*lora2*"` | LoRA Name | **LoRA Slot 2** filename. |
-| `"*lorawt2*"` | LoRA Strength | **LoRA Slot 2** weight. |
+| `"*lora*"` | LoRA Name | LoRA 1 filename. |
+| `"*lorawt*"` | LoRA Strength | LoRA 1 weight (model & clip). |
+| `"*lora2*"` / `"*lorawt2*"` | LoRA Name / Strength | LoRA 2, and so on for `*lora3*`, `*lora4*`… |
 
-*(Supported up to `*lora4*` / `*lorawt4*`)*
+**For an unlimited number of LoRAs, use rgthree's Power Lora Loader.** Set only its *first* slot to
+`*lora*` / `*lorawt*` and the extension takes over the whole node: every LoRA in the profile is
+written into it at generation time, with its own on/off state. Nothing in the JSON caps the count,
+so you never touch the file again to add, remove or toggle a LoRA.
+
+The numbered placeholders are for classic `LoraLoader` chains, where each LoRA needs its own node
+wired by hand — there the workflow decides the ceiling. A LoRA that is switched off, or a numbered
+slot the profile has no LoRA for, is sent as a valid filename at strength `0` (a no-op), because
+ComfyUI rejects the entire prompt if `lora_name` is not a file it can see.
 
 5.  Click **Save Changes**.
 
@@ -117,8 +125,27 @@ Under the **Automation** section, you can choose how the extension generates pro
 *   Click the **Paintbrush Icon 🖌️** next to the chat input bar to visualize the most recent message immediately.
 
 ### 4. LoRA Lab
-*   The extension supports **4 dedicated LoRA slots**.
-*   These slots are saved **per workflow**. If you switch from your "Pony" workflow to your "SD1.5" workflow, the LoRA selectors will update to reflect what you last used on that specific workflow.
+*   **Manage LoRAs** opens the editor. Only the LoRAs you picked live there — **Add LoRA** brings up
+    the full collection with a search box, and takes as many as you tick in one go. Click a name to
+    swap that row for a different file.
+*   Each row has its own slider range. A LoRA that only behaves between `0` and `0.4` gets a slider
+    for exactly that, instead of a shared `-2 … 2` you have to aim inside of.
+*   The drawer keeps the day-to-day controls — one row per LoRA, a checkbox and a weight slider.
+    Off means strength `0`, and the row stays put so you can flip it back.
+*   **Import from workflow** lifts the LoRAs you hardcoded into a Power Lora Loader into the list,
+    so they become toggles instead of JSON edits.
+*   The list belongs to the active **Image Profile**, so it follows the character or chat it is
+    linked to.
+
+### 5. Image Profiles
+*   The profile dropdown at the top holds the workflow, all image parameters and the LoRA list.
+*   **Manage profiles** lets you create, duplicate and delete them, and link each one to any number
+    of characters, groups or chats. Linked characters show up as thumbnails; click one to unlink.
+*   A chat link beats a character link, so one specific chat can override its character's profile.
+*   Opening a chat with nothing linked falls back to the profile marked with the crown, so leaving a
+    linked character can't leave you generating with its workflow.
+*   Your tweaks are stored back into the profile you are leaving, so switching around never loses
+    a setting.
 
 ---
 

@@ -103,6 +103,133 @@
     padding-left: 10px;
     margin-bottom: 15px;
 }
+
+/* Quick toggle + weight row in the drawer */
+.kazuma-lora-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+}
+
+.kazuma-lora-row .kazuma-lora-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.kazuma-lora-row input[type="range"] {
+    flex: 1.2;
+    min-width: 70px;
+}
+
+.kazuma-lora-off {
+    opacity: 0.45;
+}
+
+/* One configured LoRA in the manager popup */
+.kazuma-lora-edit {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 6px;
+    border-left: 2px solid var(--smart-border-color);
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.kazuma-lora-edit .kz-name {
+    flex: 1;
+    min-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-bottom: 1px dashed var(--smart-border-color);
+}
+
+.kazuma-lora-edit .kz-name:hover {
+    color: var(--smart-theme-color, inherit);
+}
+
+.kazuma-lora-edit .kz-missing {
+    color: #e57373;
+}
+
+.kazuma-lora-edit .kz-lbl {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+/* One file in the LoRA picker */
+.kazuma-pick-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.kazuma-pick-row:hover {
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+.kazuma-pick-row.selected {
+    background-color: rgba(76, 175, 80, 0.15);
+}
+
+.kazuma-pick-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kazuma-pick-folder {
+    font-size: 11px;
+    opacity: 0.5;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+    text-align: right;
+}
+
+/* Linked character/chat thumbnails, persona-connections style */
+.kazuma-link-chip {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--smart-border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.kazuma-link-chip img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.kazuma-link-chip:hover {
+    border-color: var(--smart-theme-color, #f00);
+    opacity: 0.7;
+}
 /* Progress Overlay */
 #kazuma_progress_overlay {
     position: fixed;
