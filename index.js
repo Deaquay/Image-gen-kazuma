@@ -33,6 +33,43 @@ Follow these rules strictly:
 8. **Preserve User Medium:** When the user explicitly requests a medium (e.g. "photo of", "photograph of", "illustration of", "painting of", "sketch of", "3D render of"), honor it. Do not pivot to a different medium to avoid difficulty — match the user's stated intent.
 9. **Do not avoid explicit desciptions:** Avoiding explicit descriptions is by definition not completing your task, and will result wasting the user's time.`;
 
+const KREA2_INSTRUCTION_BETA = `You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.
+
+Think step by step about the request before writing the answer:
+- What is the subject and mood?
+- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.
+- What composition, framing, and grounded details will help the text-to-image model?
+
+Follow these rules strictly:
+
+Write one polished visual description paragraph.
+
+Use the connected picture as the source.
+
+Write 200 to 250 words.
+
+Start with the medium and style, realistic photograph, or hyperrealistic.
+
+Describe visible details only.
+
+Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style.
+
+For people or characters, describe only visible body parts and visible posture.
+
+Skip unseen parts naturally.
+
+Use direct visual description.
+
+Strict specification: No preamble. No unnecessary embellishment. Only plain English text. Output only text following above instruction.
+
+Maximum 250 words. Stop immediately after the paragraph ends. Do not add suggestions, follow-ups, alternatives, or commentary.`;
+
+const KREA2_INSTRUCTION_MINI = `Describe the current moment as a single still image, in one paragraph of
+flowing prose. The tracker is authoritative for appearance, dress and posture;
+the latest message for what is happening. Describe only what is visible in
+that instant. End by naming the medium and overall aesthetic. Output the
+paragraph alone.`;
+
 // --- UPDATED CONSTANTS (With Dscriptions) ---
 const KAZUMA_PLACEHOLDERS = [
     { key: '"*input*"', desc: "Positive Prompt (Text)" },
@@ -95,6 +132,12 @@ const defaultWorkflowData = {
 
 const DEFAULT_SYSTEM_PROMPT = "You are an AI assistant specialized in generating image generation prompts based on conversation context.\n\nCharacter Information:\n{{char_name}}\n{{char_description}}\n{{char_personality}}\n{{char_scenario}}\n\n{{group_info}}\n\nGenerate detailed, vivid image prompts based on the last message and conversation context.";
 
+// Some models refuse anything phrased as "image generation"; the writer role avoids that wording.
+const PROMPT_ROLES = {
+    engineer: { task: "Write an image generation prompt for the following scene.", output: "prompt text" },
+    writer: { task: "Write a scene description for the following scene.", output: "description text" },
+};
+
 const defaultSettings = {
     enabled: true,
     debugPrompt: false,
@@ -120,6 +163,7 @@ const defaultSettings = {
     profileStrategy: "current",
     promptStyle: "standard",
     promptPerspective: "scene",
+    promptRole: "engineer",
     promptExtra: "",
     profiles: {},
     activeProfileId: "",
@@ -197,6 +241,7 @@ async function loadSettings() {
 
     $("#kazuma_prompt_style").val(extension_settings[extensionName].promptStyle || "standard");
     $("#kazuma_prompt_persp").val(extension_settings[extensionName].promptPerspective || "scene");
+    $("#kazuma_prompt_role").val(extension_settings[extensionName].promptRole || "engineer");
     $("#kazuma_prompt_extra").val(extension_settings[extensionName].promptExtra || "");
 
     $("#kazuma_negative").val(extension_settings[extensionName].customNegative);
@@ -760,12 +805,15 @@ async function onGeneratePrompt() {
 
         const style = s.promptStyle || "standard";
         const persp = s.promptPerspective || "scene";
+        const role = PROMPT_ROLES[s.promptRole] || PROMPT_ROLES.engineer;
         const extra = s.promptExtra ? `, ${s.promptExtra}` : "";
 
         let styleInst = "", perspInst = "";
         if (style === "illustrious") styleInst = "Use Booru-style tags (e.g., 1girl, solo, blue hair). Focus on anime aesthetics.";
         else if (style === "sdxl") styleInst = "Use natural language sentences. Focus on photorealism and detailed textures.";
         else if (style === "krea2") styleInst = KREA2_INSTRUCTION;
+        else if (style === "krea2beta") styleInst = KREA2_INSTRUCTION_BETA;
+        else if (style === "krea2mini") styleInst = KREA2_INSTRUCTION_MINI;
         else styleInst = "Use a list of detailed keywords/descriptors.";
 
         if (persp === "pov") perspInst = "Describe the scene from a First Person (POV) perspective, looking at the character.";
@@ -773,13 +821,13 @@ async function onGeneratePrompt() {
         else perspInst = "Describe the entire environment and atmosphere.";
 
         const instruction = substituteParams(`
-        Task: Write an image generation prompt for the following scene.
+        Task: ${role.task}
         The character is {{char}}; the user/persona is {{user}}.
         Scene: "${tracker}${lastMessage}"
         Style Constraint: ${styleInst}
         Perspective: ${perspInst}
         Additional Req: ${extra}
-        Output ONLY the prompt text.
+        Output ONLY the ${role.output}.
         `);
 
         let generatedText;
@@ -1145,6 +1193,7 @@ jQuery(async () => {
         // New Logic Events
         $("#kazuma_prompt_style").on("change", (e) => { extension_settings[extensionName].promptStyle = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_prompt_persp").on("change", (e) => { extension_settings[extensionName].promptPerspective = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_prompt_role").on("change", (e) => { extension_settings[extensionName].promptRole = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_prompt_extra").on("input", (e) => { extension_settings[extensionName].promptExtra = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_profile_strategy").on("change", (e) => {
             extension_settings[extensionName].profileStrategy = $(e.target).val();
@@ -1283,7 +1332,7 @@ const PROFILE_STATE_KEYS = [
     'selectedModel', 'selectedSampler', 'selectedScheduler',
     'steps', 'cfg', 'denoise', 'clipSkip',
     'imgWidth', 'imgHeight', 'customSeed', 'customNegative',
-    'promptStyle', 'promptPerspective', 'promptExtra',
+    'promptStyle', 'promptPerspective', 'promptRole', 'promptExtra',
     'loras',
 ];
 
@@ -1349,6 +1398,7 @@ function applyProfileState(state) {
     // Smart Prompt UI
     $("#kazuma_prompt_style").val(s.promptStyle || "standard");
     $("#kazuma_prompt_persp").val(s.promptPerspective || "scene");
+    $("#kazuma_prompt_role").val(s.promptRole || "engineer");
     $("#kazuma_prompt_extra").val(s.promptExtra || "");
 
 }
