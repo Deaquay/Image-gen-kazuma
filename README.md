@@ -4,6 +4,8 @@
 
 Image Gen Kazuma is a power-user extension designed to seamlessly bridge **SillyTavern** with **ComfyUI**. It goes beyond simple image generation by giving you full control over workflows, smart prompting logic, and persistent settings—all without leaving your chat window.
 
+> Fork of [Arif-salah/Image-gen-kazuma](https://github.com/Arif-salah/Image-gen-kazuma) — see [Changes from upstream](#-changes-from-upstream).
+
 ---
 
 ## ✨ Key Features
@@ -38,7 +40,12 @@ Edit your `run_nvidia_gpu.bat` (or equivalent script) and add:
 .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --listen --enable-cors-header
 ```
 
-### 2. Install Extension
+### 2. rgthree-comfy (soft requirement)
+Unlimited LoRAs need [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) installed in ComfyUI — the extension drives its **Power Lora Loader** node to write any number of LoRAs into a single slot. Install it from the ComfyUI Manager, or clone it into `ComfyUI/custom_nodes/`.
+
+Without it everything else still works; you fall back to the numbered `*lora2*`, `*lora3*`… placeholders, where each LoRA needs its own hand-wired `LoraLoader` node and the workflow file sets the ceiling.
+
+### 3. Install Extension
 1.  Open **SillyTavern**.
 2.  Navigate to **Extensions** -> **Install Extension**.
 3.  Paste the URL of this repository.
@@ -59,7 +66,7 @@ This extension does not use "hardcoded" generation methods. Instead, it injects 
 
 ### Step 2: Import into SillyTavern
 1.  Open the **Image Gen Kazuma** drawer settings.
-2.  Under **ComfyUI Server**, look for **Active Workflow**.
+2.  Under **Image Profile**, look for **Active Workflow**.
 3.  Click the **+ (New)** button to create a blank file, or click **Import** inside the editor.
 4.  Click the **Pen Icon** to open the **Workflow Studio**.
 
@@ -88,7 +95,7 @@ In the Workflow Studio, you will see the raw JSON. You must replace specific har
 | `"*lorawt*"` | LoRA Strength | LoRA 1 weight (model & clip). |
 | `"*lora2*"` / `"*lorawt2*"` | LoRA Name / Strength | LoRA 2, and so on for `*lora3*`, `*lora4*`… |
 
-**For an unlimited number of LoRAs, use rgthree's Power Lora Loader.** Set only its *first* slot to
+**For an unlimited number of LoRAs, use [rgthree's](https://github.com/rgthree/rgthree-comfy) Power Lora Loader.** Set only its *first* slot to
 `*lora*` / `*lorawt*` and the extension takes over the whole node: every LoRA in the profile is
 written into it at generation time, with its own on/off state. Nothing in the JSON caps the count,
 so you never touch the file again to add, remove or toggle a LoRA.
@@ -105,7 +112,7 @@ ComfyUI rejects the entire prompt if `lora_name` is not a file it can see.
 ## 🎨 Prompting & Automation Guide
 
 ### 1. Smart Prompt Logic
-Under the **Automation** section, you can choose how the extension generates prompts.
+Under the **Prompt Generation** section, you can choose how the extension generates prompts.
 
 *   **Strategy: Use Current Active Preset** (Recommended)
     *   This uses your *current* SillyTavern text generation preset.
@@ -146,6 +153,35 @@ Under the **Automation** section, you can choose how the extension generates pro
     linked character can't leave you generating with its workflow.
 *   Your tweaks are stored back into the profile you are leaving, so switching around never loses
     a setting.
+
+---
+
+## 🔀 Changes from upstream
+
+Everything listed here is new in this fork; the rest of the extension is upstream's.
+
+**Added**
+*   **Image Profiles.** Upstream remembered settings per workflow file. A profile is now its own thing — workflow, checkpoint, sampler, scheduler, all ten image params, negative prompt and the LoRA list — and can be linked to characters, groups or a single chat. Two profiles can share one workflow with different settings, which the old per-workflow store could not express. Old snapshots migrate automatically.
+*   **Unlimited LoRAs.** Upstream had four fixed slots; a fifth meant editing the workflow JSON. LoRAs are now a managed list with a searchable picker, per-LoRA slider ranges and on/off toggles. Point the first slot of an [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) Power Lora Loader at `*lora*`/`*lorawt*` and the extension writes every configured LoRA into the node at generation time — that node is the one soft requirement this fork adds. Numbered `*lora2*` placeholders still drive classic `LoraLoader` chains without it.
+*   **Connection profile for prompt generation.** Requests go through `ConnectionManagerRequestService`, so generating an image prompt no longer breaks the prompt cache or forces a chat refresh.
+*   **Image gen context presets.** Configurable system prompt, message count and character-info inclusion for the prompt LLM, separate from your chat preset.
+*   **Include Tracker.** Optionally prepends the newest [SillyTavern-Tracker-Enhanced](https://github.com/kaldigo/SillyTavern-Tracker-Enhanced) tracker to the scene, which keeps clothing and similar details consistent. Soft dependency — read straight off the message.
+*   **AI Role selector.** The instruction was hardcoded to "Write an image generation prompt", which some models refuse outright. Pick *Prompt Engineer* (upstream behaviour) or *Scene Description Writer*.
+*   **Scheduler selection**, missing upstream entirely.
+*   **krea2 / krea2beta / krea2mini** prompt styles.
+*   Macro resolution (`{{char}}`, `{{user}}`, `{{group_info}}`, …) in system prompts, chat history and instructions — upstream only resolved its own placeholders, and only on the specific-preset path.
+*   `<think>` block stripping from reasoning models.
+*   Regrouped settings drawer: prompt-shaping controls in one place, server address and debug toggles collapsed out of the way.
+
+**Fixed**
+*   A generation started in one chat could insert its image into whichever chat was open when it finished. The chat ID is pinned at the start and both write points bail if it changed (the image is still saved to disk).
+*   ComfyUI history polling had no exit except success — a prompt that never landed polled until the tab closed. Now capped at 20 minutes, with no overlapping polls.
+*   Auto-gen fired on a character's greeting: ST tags those events `first_message` and the handler dropped that argument.
+*   Placeholders reached the model verbatim when using a Custom System Prompt Override, or when Include Character Information was unchecked.
+
+**Removed**
+*   Per-preset temperature and max-tokens controls — they were never sent with the request. Sampling comes from the completion preset attached to the connection profile.
+*   The two separate prompt boxes, collapsed into one with a *Restore built-in default* button. Any non-empty override migrates into it on load.
 
 ---
 

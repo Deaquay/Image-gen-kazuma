@@ -10,44 +10,19 @@
         <!-- MODERN SETTINGS CONTAINER -->
         <div class="kazuma-settings">
 
-            <!-- Group 1: Main Switches -->
+            <!-- Master switch -->
             <div class="kazuma-group">
-                <label class="kazuma-row" title="Turn the extension on/off">
+                <label class="kazuma-row" style="margin-bottom:0;" title="Turn the extension on/off">
                     <span><i class="fa-solid fa-power-off"></i> Enable Extension</span>
                     <input type="checkbox" id="kazuma_enable" />
                 </label>
-                <label class="kazuma-row" title="Fixes lag by compressing images">
-                    <span><i class="fa-solid fa-compress"></i> Compress Images (Fix Lag)</span>
-                    <input type="checkbox" id="kazuma_compress" />
-                </label>
-                <label class="kazuma-row" title="Show prompt popup for editing before generation">
-                    <span><i class="fa-solid fa-bug"></i> Diagnostic Mode</span>
-                    <input type="checkbox" id="kazuma_debug" />
-                </label>
-                <label class="kazuma-row" title="Prepend the latest Tracker-Enhanced tracker to the scene">
-                    <span><i class="fa-solid fa-clipboard-list"></i> Include Tracker</span>
-                    <input type="checkbox" id="kazuma_include_tracker" />
-                </label>
             </div>
 
-            <!-- Group 2: Automation & Prompting -->
+            <!-- Everything that shapes the text prompt -->
             <div class="kazuma-group">
-                <div class="kazuma-header"><i class="fa-solid fa-robot"></i> Automation</div>
+                <div class="kazuma-header"><i class="fa-solid fa-wand-magic-sparkles"></i> Prompt Generation</div>
 
-                <label class="kazuma-row">
-                    <span>Auto-Generate</span>
-                    <input type="checkbox" id="kazuma_auto_enable" />
-                </label>
-
-                <div class="kazuma-row">
-                    <span>Every X replies:</span>
-                    <input type="number" id="kazuma_auto_freq" class="text_pole" style="width: 60px" min="1" value="1"/>
-                </div>
-
-                <hr style="opacity:0.2; margin: 10px 0;">
-
-                <div class="kazuma-sub-label">Prompt Generator Preset</div>
-
+                <div class="kazuma-sub-label" style="margin-top:0;">Prompt Generator Preset</div>
                 <select id="kazuma_profile_strategy" class="text_pole" style="width:100%; margin-bottom: 5px;">
                     <option value="current">Use Current Active Preset</option>
                     <option value="specific">Use Specific Preset...</option>
@@ -56,7 +31,7 @@
                 <!-- 1. Specific Profile List (Shown ONLY if 'specific') -->
                 <select id="kazuma_profile" class="text_pole" style="width:100%; display:none;"></select>
 
-                <!-- 2. NEW: Prompt Builder (Shown ONLY if 'current') -->
+                <!-- 2. Prompt Builder (Shown ONLY if 'current') -->
                 <div id="kazuma_prompt_builder" style="display:none; background:rgba(0,0,0,0.2); padding:10px; border-radius:5px; margin-top:5px; border-left: 2px solid var(--smart-text-color);">
                     <div class="kazuma-sub-label" style="margin-top:0;">Model Style (Format)</div>
                     <select id="kazuma_prompt_style" class="text_pole" style="width:100%; margin-bottom:8px;">
@@ -87,9 +62,9 @@
 
                 <hr style="opacity:0.2; margin: 10px 0;">
 
-                <div class="kazuma-sub-label">Image Gen Context Preset</div>
+                <div class="kazuma-sub-label" style="margin-top:0;">Image Gen Context Preset</div>
                 <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Controls what chat history &amp; character info is sent to the prompt generator when using a connection profile</small>
-                <div style="display:flex;gap:5px;margin-bottom:5px;flex-wrap:wrap;">
+                <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
                     <select id="kazuma_image_gen_preset" class="text_pole" style="flex:1;min-width:120px;">
                         <option>Loading...</option>
                     </select>
@@ -97,9 +72,29 @@
                     <button id="kazuma_edit_preset" class="menu_button" title="Edit selected preset"><i class="fa-solid fa-pen"></i></button>
                     <button id="kazuma_delete_preset" class="menu_button" title="Delete selected preset"><i class="fa-solid fa-trash"></i></button>
                 </div>
+
+                <label class="kazuma-row" style="margin-bottom:0;" title="Prepend the latest Tracker-Enhanced tracker to the scene">
+                    <span><i class="fa-solid fa-clipboard-list"></i> Include Tracker</span>
+                    <input type="checkbox" id="kazuma_include_tracker" />
+                </label>
             </div>
 
-            <!-- Group 3: ComfyUI Connection -->
+            <!-- When to fire -->
+            <div class="kazuma-group">
+                <div class="kazuma-header"><i class="fa-solid fa-robot"></i> Automation</div>
+
+                <label class="kazuma-row">
+                    <span>Auto-Generate</span>
+                    <input type="checkbox" id="kazuma_auto_enable" />
+                </label>
+
+                <div class="kazuma-row" style="margin-bottom:0;">
+                    <span>Every X replies:</span>
+                    <input type="number" id="kazuma_auto_freq" class="text_pole" style="width: 60px" min="1" value="1"/>
+                </div>
+            </div>
+
+            <!-- The image side: profile owns workflow + params + loras -->
             <div class="kazuma-group">
                 <div class="kazuma-header"><i class="fa-solid fa-id-badge"></i> Image Profile</div>
                 <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Workflow, LoRAs and every image parameter in one set. Link a profile to characters or chats and it swaps itself in when you open them.</small>
@@ -108,17 +103,10 @@
                     <button id="kazuma_manage_profiles" class="menu_button" title="Manage profiles &amp; links"><i class="fa-solid fa-users-gear"></i></button>
                 </div>
                 <div id="kazuma_profile_links" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;"></div>
-            </div>
 
-            <div class="kazuma-group">
-                <div class="kazuma-header"><i class="fa-solid fa-link"></i> ComfyUI Server</div>
+                <hr style="opacity:0.2; margin: 12px 0;">
 
-                <div style="display:flex; gap: 5px; margin-bottom: 10px;">
-                    <input type="text" id="kazuma_url" class="text_pole" value="http://127.0.0.1:8188" placeholder="API URL" style="flex:1;" />
-                    <button id="kazuma_test_btn" class="menu_button" title="Test Connection"><i class="fa-solid fa-wifi"></i></button>
-                </div>
-
-                <div class="kazuma-sub-label">Active Workflow</div>
+                <div class="kazuma-sub-label" style="margin-top:0;">Active Workflow</div>
                 <div style="display:flex; gap:5px;">
                     <select id="kazuma_workflow_list" class="text_pole" style="flex:1"></select>
                     <button id="kazuma_new_workflow" class="menu_button fa-solid fa-plus" title="New"></button>
@@ -131,7 +119,7 @@
             <details class="kazuma-details" open>
                 <summary><i class="fa-solid fa-sliders"></i> Image Parameters</summary>
                 <div class="kazuma-content">
-                    <div class="kazuma-sub-label">Checkpoint / Model</div>
+                    <div class="kazuma-sub-label" style="margin-top:0;">Checkpoint / Model</div>
                     <select id="kazuma_model_list" class="text_pole" style="width:100%"></select>
 
                     <div class="kazuma-row" style="margin-top:10px;">
@@ -179,8 +167,11 @@
                         <input type="number" id="kazuma_height" class="text_pole" placeholder="H" style="flex:1">
                     </div>
 
-                     <div class="kazuma-sub-label">Seed (-1 for random)</div>
+                    <div class="kazuma-sub-label">Seed (-1 for random)</div>
                     <input type="number" id="kazuma_seed" class="text_pole" style="width:100%">
+
+                    <div class="kazuma-sub-label">Negative Prompt Override</div>
+                    <textarea id="kazuma_negative" class="text_pole" rows="2" style="width:100%; font-size:12px;"></textarea>
                 </div>
             </details>
 
@@ -195,11 +186,31 @@
                 </div>
             </details>
 
-            <!-- Negative Prompt -->
-            <div class="kazuma-group">
-                <div class="kazuma-header">Negative Prompt Override</div>
-                <textarea id="kazuma_negative" class="text_pole" rows="2" style="width:100%; font-size:12px; margin-top:5px;"></textarea>
-            </div>
+            <!-- Collapsible 3: set-once plumbing -->
+            <details class="kazuma-details">
+                <summary><i class="fa-solid fa-link"></i> ComfyUI Server</summary>
+                <div class="kazuma-content">
+                    <div style="display:flex; gap: 5px;">
+                        <input type="text" id="kazuma_url" class="text_pole" value="http://127.0.0.1:8188" placeholder="API URL" style="flex:1;" />
+                        <button id="kazuma_test_btn" class="menu_button" title="Test Connection"><i class="fa-solid fa-wifi"></i></button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Collapsible 4: rarely touched -->
+            <details class="kazuma-details">
+                <summary><i class="fa-solid fa-screwdriver-wrench"></i> Advanced</summary>
+                <div class="kazuma-content">
+                    <label class="kazuma-row" title="Fixes lag by compressing images">
+                        <span><i class="fa-solid fa-compress"></i> Compress Images (Fix Lag)</span>
+                        <input type="checkbox" id="kazuma_compress" />
+                    </label>
+                    <label class="kazuma-row" style="margin-bottom:0;" title="Show prompt popup for editing before generation">
+                        <span><i class="fa-solid fa-bug"></i> Diagnostic Mode</span>
+                        <input type="checkbox" id="kazuma_debug" />
+                    </label>
+                </div>
+            </details>
 
             <!-- Manual Action -->
             <button id="kazuma_gen_prompt_btn" class="menu_button" style="width:100%; padding: 10px;">
