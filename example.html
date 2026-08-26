@@ -205,6 +205,20 @@
                         <span><i class="fa-solid fa-compress"></i> Compress Images (Fix Lag)</span>
                         <input type="checkbox" id="kazuma_compress" />
                     </label>
+                    <div id="kazuma_compress_opts">
+                        <div class="kazuma-slider-row">
+                            <span>Format</span>
+                            <select id="kazuma_compress_format" class="text_pole" style="flex:1;">
+                                <option value="jpeg">JPEG</option>
+                                <option value="webp">WebP</option>
+                            </select>
+                        </div>
+                        <div class="kazuma-slider-row" title="Higher = better quality, bigger files">
+                            <span>Quality</span>
+                            <input type="range" id="kazuma_compress_quality" min="10" max="100" step="1" />
+                            <input type="number" id="kazuma_compress_quality_val" class="text_pole" style="width:50px">
+                        </div>
+                    </div>
                     <label class="kazuma-row" style="margin-bottom:0;" title="Show prompt popup for editing before generation">
                         <span><i class="fa-solid fa-bug"></i> Diagnostic Mode</span>
                         <input type="checkbox" id="kazuma_debug" />

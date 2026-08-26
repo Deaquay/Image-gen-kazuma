@@ -156,6 +156,8 @@ const defaultSettings = {
     selectedSampler: "euler",
     selectedScheduler: "normal",
     compressImages: true,
+    compressFormat: "jpeg",
+    compressQuality: 90,
     steps: 20,
     cfg: 7.0,
     denoise: 0.5,
@@ -247,6 +249,9 @@ async function loadSettings() {
     $("#kazuma_negative").val(extension_settings[extensionName].customNegative);
     $("#kazuma_seed").val(extension_settings[extensionName].customSeed);
     $("#kazuma_compress").prop("checked", extension_settings[extensionName].compressImages);
+    $("#kazuma_compress_format").val(extension_settings[extensionName].compressFormat || "jpeg");
+    updateSliderInput('kazuma_compress_quality', 'kazuma_compress_quality_val', extension_settings[extensionName].compressQuality ?? 90);
+    $("#kazuma_compress_opts").toggle(!!extension_settings[extensionName].compressImages);
 
     $("#kazuma_profile_strategy").val(extension_settings[extensionName].profileStrategy || "current");
     toggleProfileVisibility();
@@ -1065,7 +1070,7 @@ async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
 
 function blobToBase64(blob) { return new Promise((resolve) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.readAsDataURL(blob); }); }
 
-function compressImage(base64Str, quality = 0.9) {
+function compressImage(base64Str, format = "jpeg", quality = 0.9) {
     return new Promise((resolve) => {
         const img = new Image();
         img.src = base64Str;
@@ -1075,7 +1080,7 @@ function compressImage(base64Str, quality = 0.9) {
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL("image/jpeg", quality));
+            resolve(canvas.toDataURL(`image/${format}`, quality));
         };
         img.onerror = () => resolve(base64Str);
     });
@@ -1091,8 +1096,11 @@ async function insertImageToChat(imgUrl, promptText, target = null, originChatId
 
         let format = "png";
         if (extension_settings[extensionName].compressImages) {
-            base64FullURL = await compressImage(base64FullURL, 0.9);
-            format = "jpeg";
+            const wanted = extension_settings[extensionName].compressFormat || "jpeg";
+            const quality = (extension_settings[extensionName].compressQuality ?? 90) / 100;
+            base64FullURL = await compressImage(base64FullURL, wanted, quality);
+            // canvas silently falls back to png if the format is unsupported, so trust the data URL
+            format = base64FullURL.match(/^data:image\/(\w+)/)?.[1] || "png";
         }
 
         const base64Raw = base64FullURL.split(',')[1];
@@ -1221,7 +1229,8 @@ jQuery(async () => {
         $("#kazuma_width, #kazuma_height").on("input", (e) => { extension_settings[extensionName][e.target.id === "kazuma_width" ? "imgWidth" : "imgHeight"] = parseInt($(e.target).val()); saveSettingsDebounced(); });
         $("#kazuma_negative").on("input", (e) => { extension_settings[extensionName].customNegative = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_seed").on("input", (e) => { extension_settings[extensionName].customSeed = parseInt($(e.target).val()); saveSettingsDebounced(); });
-        $("#kazuma_compress").on("change", (e) => { extension_settings[extensionName].compressImages = $(e.target).prop("checked"); saveSettingsDebounced(); });
+        $("#kazuma_compress").on("change", (e) => { extension_settings[extensionName].compressImages = $(e.target).prop("checked"); $("#kazuma_compress_opts").toggle($(e.target).prop("checked")); saveSettingsDebounced(); });
+        $("#kazuma_compress_format").on("change", (e) => { extension_settings[extensionName].compressFormat = $(e.target).val(); saveSettingsDebounced(); });
 
         $("#kazuma_image_gen_preset").on("change", (e) => {
             extension_settings[extensionName].imageGenPreset = $(e.target).val();
@@ -1256,6 +1265,7 @@ jQuery(async () => {
         bindSlider("kazuma_cfg", "cfg", true);
         bindSlider("kazuma_denoise", "denoise", true);
         bindSlider("kazuma_clip", "clipSkip", false);
+        bindSlider("kazuma_compress_quality", "compressQuality", false);
 
         $("#kazuma_test_btn").on("click", onTestConnection);
         $("#kazuma_gen_prompt_btn").on("click", onGeneratePrompt);
