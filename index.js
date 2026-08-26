@@ -64,11 +64,7 @@ Strict specification: No preamble. No unnecessary embellishment. Only plain Engl
 
 Maximum 250 words. Stop immediately after the paragraph ends. Do not add suggestions, follow-ups, alternatives, or commentary.`;
 
-const KREA2_INSTRUCTION_MINI = `Describe the current moment as a single still image, in one paragraph of
-flowing prose. The tracker is authoritative for appearance, dress and posture;
-the latest message for what is happening. Describe only what is visible in
-that instant. End by naming the medium and overall aesthetic. Output the
-paragraph alone.`;
+const KREA2_INSTRUCTION_MINI = `Describe the current moment as a single still image, in one paragraph of flowing prose. The tracker is authoritative for appearance, dress and posture; the latest message for what is happening. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone.`;
 
 // --- UPDATED CONSTANTS (With Dscriptions) ---
 const KAZUMA_PLACEHOLDERS = [
