@@ -150,6 +150,7 @@ const defaultSettings = {
     autoGenEnabled: false,
     autoGenFreq: 1,
     customNegative: "bad quality, blurry, worst quality, low quality",
+    customPositive: "",
     customSeed: -1,
     selectedSampler: "euler",
     selectedScheduler: "normal",
@@ -245,6 +246,7 @@ async function loadSettings() {
     $("#kazuma_prompt_extra").val(extension_settings[extensionName].promptExtra || "");
 
     $("#kazuma_negative").val(extension_settings[extensionName].customNegative);
+    $("#kazuma_positive").val(extension_settings[extensionName].customPositive || "");
     $("#kazuma_seed").val(extension_settings[extensionName].customSeed);
     $("#kazuma_compress").prop("checked", extension_settings[extensionName].compressImages);
     $("#kazuma_compress_format").val(extension_settings[extensionName].compressFormat || "jpeg");
@@ -954,6 +956,10 @@ async function generateWithComfy(positivePrompt, target = null) {
 
 function injectParamsIntoWorkflow(workflow, promptText, finalSeed) {
     const s = extension_settings[extensionName];
+    // Global positive: LoRA trigger words and style tags that should ride along with every
+    // prompt, appended after whatever the model wrote.
+    const globalPositive = (s.customPositive || "").trim();
+    if (globalPositive) promptText = promptText ? `${promptText}, ${globalPositive}` : globalPositive;
     const loras = s.loras || [];
     // Off / unconfigured slots on a classic LoraLoader still need a filename ComfyUI recognises.
     const loraFallback = loras.find(l => l.name)?.name || availableLoras[0] || "None";
@@ -1225,6 +1231,7 @@ jQuery(async () => {
 
         $("#kazuma_width, #kazuma_height").on("input", (e) => { extension_settings[extensionName][e.target.id === "kazuma_width" ? "imgWidth" : "imgHeight"] = parseInt($(e.target).val()); saveSettingsDebounced(); });
         $("#kazuma_negative").on("input", (e) => { extension_settings[extensionName].customNegative = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_positive").on("input", (e) => { extension_settings[extensionName].customPositive = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_seed").on("input", (e) => { extension_settings[extensionName].customSeed = parseInt($(e.target).val()); saveSettingsDebounced(); });
         $("#kazuma_compress").on("change", (e) => { extension_settings[extensionName].compressImages = $(e.target).prop("checked"); $("#kazuma_compress_opts").toggle($(e.target).prop("checked")); saveSettingsDebounced(); });
         $("#kazuma_compress_format").on("change", (e) => { extension_settings[extensionName].compressFormat = $(e.target).val(); saveSettingsDebounced(); });
@@ -1338,7 +1345,7 @@ const PROFILE_STATE_KEYS = [
     'currentWorkflowName',
     'selectedModel', 'selectedSampler', 'selectedScheduler',
     'steps', 'cfg', 'denoise', 'clipSkip',
-    'imgWidth', 'imgHeight', 'customSeed', 'customNegative',
+    'imgWidth', 'imgHeight', 'customSeed', 'customNegative', 'customPositive',
     'promptStyle', 'promptPerspective', 'promptRole', 'promptExtra',
     'loras',
 ];
@@ -1401,6 +1408,7 @@ function applyProfileState(state) {
     $("#kazuma_height").val(s.imgHeight);
     $("#kazuma_seed").val(s.customSeed);
     $("#kazuma_negative").val(s.customNegative);
+    $("#kazuma_positive").val(s.customPositive || "");
 
     // Smart Prompt UI
     $("#kazuma_prompt_style").val(s.promptStyle || "standard");
