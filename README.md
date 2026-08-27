@@ -21,8 +21,8 @@ Image Gen Kazuma is a power-user extension designed to seamlessly bridge **Silly
 *   **Cloud Saving:** Workflows are saved to your SillyTavern server, so they persist across reloads.
 
 ### ⚡ Performance & UX
-*   **Zero-Lag Chat:** High-res images are automatically compressed to optimized JPEGs before being added to the chat history, keeping SillyTavern fast.
-*   **Live Progress Bar:** a subtle, animated progress bar tracks the generation status (Prompting -> Rendering -> Downloading).
+*   **Zero-Lag Chat:** High-res images are compressed to JPEG or WebP at a quality you pick before being added to the chat history, keeping SillyTavern fast. Turn it off to keep the original PNG.
+*   **Live Progress Bar:** a subtle, animated progress bar tracks the generation status (Prompting -> Rendering -> Saving).
 *   **Swipe-to-Vary:** Swipe right on any generated image in the chat to instantly trigger a variation of that specific image.
 
 ---
@@ -30,15 +30,17 @@ Image Gen Kazuma is a power-user extension designed to seamlessly bridge **Silly
 ## 🔌 Prerequisites & Installation
 
 ### 1. ComfyUI Setup (Important!)
-For SillyTavern to talk to ComfyUI, you must launch ComfyUI with specific flags to allow API access.
+Generation runs through the SillyTavern server, so the ComfyUI URL you enter is resolved on the machine running SillyTavern — not in your browser. If both are on the same box, `http://127.0.0.1:8188` works with no ComfyUI flags at all, and you can reach SillyTavern from your phone or another PC without exposing ComfyUI to the network.
 
-Edit your `run_nvidia_gpu.bat` (or equivalent script) and add:
-`--listen --enable-cors-header`
+The LoRA picker is the one exception: SillyTavern proxies checkpoints, samplers, schedulers and VAEs, but has no equivalent route for LoRAs, so that list is read by your browser talking to ComfyUI directly. On a same-machine setup, add `--enable-cors-header` to your `run_nvidia_gpu.bat` (or equivalent) and it works:
 
-**Example:**
 ```bat
-.\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --listen --enable-cors-header
+.\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --enable-cors-header
 ```
+
+If you browse SillyTavern from a phone or another PC, that flag isn't enough — your browser is asking *itself* for the list, so the dropdown comes back empty. Everything else still works.
+
+Note that reloading or closing the SillyTavern tab cancels an in-flight render: the server interrupts the ComfyUI job when the browser disconnects.
 
 ### 2. rgthree-comfy (soft requirement)
 Unlimited LoRAs need [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) installed in ComfyUI — the extension drives its **Power Lora Loader** node to write any number of LoRAs into a single slot. Install it from the ComfyUI Manager, or clone it into `ComfyUI/custom_nodes/`.

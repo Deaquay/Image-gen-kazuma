@@ -917,11 +917,7 @@ async function generateWithComfy(positivePrompt, target = null) {
 
     try {
         toastr.info("Sending to ComfyUI...", "Image Gen Kazuma");
-        const res = await fetch(`${url}/prompt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: workflow }) });
-        if(!res.ok) throw new Error("Failed");
-        const data = await res.json();
-        console.log(`[${extensionName}] queued prompt_id=${data.prompt_id}`);
-        await waitForGeneration(url, data.prompt_id, positivePrompt, target);
+        await runGeneration(url, workflow, positivePrompt, target);
     } catch(e) { toastr.error("Comfy Error: " + e.message); }
 }
 
@@ -997,74 +993,51 @@ async function onImageSwiped(data) {
     await generateWithComfy(prompt, { message: message, element: $(element) });
 }
 
-// ponytail: 20 min at 1s ticks. Without a cap a prompt that never lands (ComfyUI restarted,
-// queue cleared) polls until the tab closes.
-const MAX_POLL_TICKS = 1200;
+// ponytail: 20 min. The server polls ComfyUI in a while(true) with no ceiling of its own. When
+// the client socket closes it POSTs /interrupt to ComfyUI, and that ending the job is what stops
+// the loop - its AbortController is built but never passed to a fetch. So the cap lives here.
+// Note this makes any disconnect cancel the render: reloading the ST tab kills an in-flight job.
+const GENERATION_TIMEOUT_MS = 20 * 60 * 1000;
 
-async function waitForGeneration(baseUrl, promptId, positivePrompt, target) {
-    // [UPDATE TEXT]
+async function runGeneration(baseUrl, workflow, positivePrompt, target) {
     showKazumaProgress("Rendering Image...");
 
     // Pin the chat this generation belongs to. saveChat() writes the live chat array to whatever
     // chat is loaded now, so finishing a generation after the user moved on must not write at all.
     const originChatId = getCurrentChatId();
 
-    // ponytail: async ticks overlap when ComfyUI is busy (e.g. rendering video), so guard both ends
-    let polling = false, finished = false, ticks = 0;
-    const checkInterval = setInterval(async () => {
-        if (polling || finished) return;
+    try {
+        // Routed through the ST server rather than browser -> ComfyUI directly, so comfyUrl is
+        // resolved on the machine running SillyTavern. A phone hitting 127.0.0.1 would otherwise
+        // be asking itself for an image. The server submits, polls and downloads in one request
+        // and hands back base64 - there is no prompt_id to follow, hence no per-second progress.
+        const res = await fetch('/api/sd/comfy/generate', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS),
+            body: JSON.stringify({
+                url: baseUrl,
+                // The endpoint forwards this string as the raw body, so it must be pre-stringified.
+                prompt: JSON.stringify({ prompt: workflow }),
+            }),
+        });
+        if (!res.ok) throw new Error(await res.text());
 
-        if (getCurrentChatId() !== originChatId) {
-            finished = true;
-            clearInterval(checkInterval);
-            hideKazumaProgress();
-            console.warn(`[${extensionName}] chat changed while rendering prompt_id=${promptId}; abandoning insert`);
-            toastr.warning("Chat changed while the image was rendering - it was not inserted.", "Image Gen Kazuma");
-            return;
-        }
+        const { format, data } = await res.json();
+        console.log(`[${extensionName}] generated ${format} image (${data.length} b64 chars)`);
 
-        if (++ticks > MAX_POLL_TICKS) {
-            finished = true;
-            clearInterval(checkInterval);
-            hideKazumaProgress();
+        showKazumaProgress("Saving...");
+        await insertImageToChat(`data:image/${format};base64,${data}`, positivePrompt, target, originChatId);
+    } catch (e) {
+        if (e.name === 'TimeoutError') {
             toastr.error("Timed out waiting for ComfyUI.", "Image Gen Kazuma");
-            return;
+        } else {
+            throw e;
         }
-
-        polling = true;
-        try {
-            const h = await (await fetch(`${baseUrl}/history/${promptId}`)).json();
-            if (h[promptId] && !finished) {
-                finished = true;
-                clearInterval(checkInterval);
-                const outputs = h[promptId].outputs;
-                let finalImage = null;
-                for (const nodeId in outputs) {
-                    const nodeOutput = outputs[nodeId];
-                    if (nodeOutput.images && nodeOutput.images.length > 0) {
-                        finalImage = nodeOutput.images[0];
-                        break;
-                    }
-                }
-                if (finalImage) {
-                    // [UPDATE TEXT]
-                    showKazumaProgress("Downloading...");
-
-                    console.log(`[${extensionName}] complete prompt_id=${promptId} file=${finalImage.filename}`);
-                    const imgUrl = `${baseUrl}/view?filename=${finalImage.filename}&subfolder=${finalImage.subfolder}&type=${finalImage.type}`;
-                    await insertImageToChat(imgUrl, positivePrompt, target, originChatId);
-
-                    // [HIDE WHEN DONE]
-                    hideKazumaProgress();
-                } else {
-                    hideKazumaProgress();
-                }
-            }
-        } catch (e) { } finally { polling = false; }
-    }, 1000);
+    } finally {
+        hideKazumaProgress();
+    }
 }
-
-function blobToBase64(blob) { return new Promise((resolve) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.readAsDataURL(blob); }); }
 
 function compressImage(base64Str, format = "jpeg", quality = 0.9) {
     return new Promise((resolve) => {
@@ -1083,14 +1056,11 @@ function compressImage(base64Str, format = "jpeg", quality = 0.9) {
 }
 
 // --- SAVE TO SERVER ---
-async function insertImageToChat(imgUrl, promptText, target = null, originChatId = getCurrentChatId()) {
+async function insertImageToChat(dataUrl, promptText, target = null, originChatId = getCurrentChatId()) {
     try {
-        toastr.info("Downloading image...", "Image Gen Kazuma");
-        const response = await fetch(imgUrl);
-        const blob = await response.blob();
-        let base64FullURL = await blobToBase64(blob);
+        let base64FullURL = dataUrl;
 
-        let format = "png";
+        let format = dataUrl.match(/^data:image\/(\w+)/)?.[1] || "png";
         if (extension_settings[extensionName].compressImages) {
             const wanted = extension_settings[extensionName].compressFormat || "jpeg";
             const quality = (extension_settings[extensionName].compressQuality ?? 90) / 100;
@@ -1120,12 +1090,12 @@ async function insertImageToChat(imgUrl, promptText, target = null, originChatId
             generation_type: "free",
         };
 
-        // Downloading, compressing and saving the image took a while. If the user switched chats in
+        // Rendering, compressing and saving the image took a while. If the user switched chats in
         // the meantime, target.message points into the old chat array and saveChat() would write the
         // now-current chat - so stop here. The image is already on disk under its character folder.
         if (getCurrentChatId() !== originChatId) {
             console.warn(`[${extensionName}] chat changed during image save; not inserting. Image kept at ${savedPath}`);
-            toastr.warning("Chat changed during download - image saved to disk but not inserted.", "Image Gen Kazuma");
+            toastr.warning("Chat changed while rendering - image saved to disk but not inserted.", "Image Gen Kazuma");
             return;
         }
 
