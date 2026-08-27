@@ -66,6 +66,8 @@ Maximum 250 words. Stop immediately after the paragraph ends. Do not add suggest
 
 const KREA2_INSTRUCTION_MINI = `Describe the current moment as a single still image, in one paragraph of flowing prose. The tracker is authoritative for appearance, dress and posture; the latest message for what is happening. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone.`;
 
+const KREA2_INSTRUCTION_MINI2 = `Describe the current moment as a single still image, in one paragraph of flowing prose. Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style. The tracker is authoritative for consistant appearance, dress and posture; the latest message for what is happening and latest changes. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone.`;
+
 // --- UPDATED CONSTANTS (With Dscriptions) ---
 const KAZUMA_PLACEHOLDERS = [
     { key: '"*input*"', desc: "Positive Prompt (Text)" },
@@ -843,6 +845,7 @@ async function onGeneratePrompt() {
         else if (style === "krea2") styleInst = KREA2_INSTRUCTION;
         else if (style === "krea2beta") styleInst = KREA2_INSTRUCTION_BETA;
         else if (style === "krea2mini") styleInst = KREA2_INSTRUCTION_MINI;
+        else if (style === "krea2mini2") styleInst = KREA2_INSTRUCTION_MINI2;
         else styleInst = "Use a list of detailed keywords/descriptors.";
 
         if (persp === "pov") perspInst = "Describe the scene from a First Person (POV) perspective, looking at the character.";
