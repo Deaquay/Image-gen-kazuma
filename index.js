@@ -958,13 +958,14 @@ async function generateWithComfy(positivePrompt, target = null) {
 
 function injectParamsIntoWorkflow(workflow, promptText, finalSeed) {
     const s = extension_settings[extensionName];
+    const loras = s.loras || [];
+    // Off / unconfigured slots on a classic LoraLoader still need a filename ComfyUI recognises.
+    const loraFallback = loras.find(l => l.name)?.name || availableLoras[0] || "None";
+
     // Triggers of the LoRAs that are on, then the profile-wide suffix, appended after whatever the
     // model wrote. Toggling a LoRA carries its trigger words with it.
     const extras = [collectLoraTriggers(loras, s.loraTriggers), (s.customPositive || "").trim()].filter(Boolean);
     promptText = [promptText, ...extras].filter(Boolean).join(", ");
-    const loras = s.loras || [];
-    // Off / unconfigured slots on a classic LoraLoader still need a filename ComfyUI recognises.
-    const loraFallback = loras.find(l => l.name)?.name || availableLoras[0] || "None";
     let seedInjected = false;
 
     for (const nodeId in workflow) {
