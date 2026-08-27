@@ -1,0 +1,17 @@
+{
+  "name": "kazuma-loras",
+  "version": "1.0.0",
+  "description": "Server-side ComfyUI LoRA listing for the Image Gen Kazuma extension",
+  "main": "index.js",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "sillytavern",
+    "plugin",
+    "comfyui",
+    "lora"
+  ]
+}

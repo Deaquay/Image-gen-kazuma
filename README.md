@@ -38,16 +38,33 @@ The LoRA picker is the one exception: SillyTavern proxies checkpoints, samplers,
 .\python_embeded\python.exe -s ComfyUI\main.py --windows-standalone-build --enable-cors-header
 ```
 
-If you browse SillyTavern from a phone or another PC, that flag isn't enough — your browser is asking *itself* for the list, so the dropdown comes back empty. Everything else still works.
+If you browse SillyTavern from a phone or another PC, that flag isn't enough — your browser is asking *itself* for the list. Install the bundled server plugin instead (below). Without either, everything still works; the LoRA dropdown just comes back empty.
 
 Note that reloading or closing the SillyTavern tab cancels an in-flight render: the server interrupts the ComfyUI job when the browser disconnects.
 
-### 2. rgthree-comfy (soft requirement)
+### 2. LoRA list plugin (optional — only for remote access)
+**Skip this if you use SillyTavern on the same machine as ComfyUI.** The `--enable-cors-header` flag above covers you.
+
+If you open SillyTavern from another device, this plugin fetches the LoRA list server-side so the picker populates there too — and lets you drop the CORS flag entirely.
+
+It ships in this repo under `server-plugin/`. Link or copy it into SillyTavern's `plugins/` folder:
+
+```bash
+ln -s /path/to/Image-gen-kazuma/server-plugin /path/to/SillyTavern/plugins/kazuma-loras
+```
+
+A symlink means `git pull` on the extension updates the plugin too. Copying works equally well if your filesystem dislikes symlinks.
+
+Then set `enableServerPlugins: true` in SillyTavern's `config.yaml` and restart the server. You should see `[kazuma-loras] Plugin loaded` in the console.
+
+The extension calls the plugin first and falls back to asking ComfyUI directly when it isn't mounted, so installing it is never required and never breaks a working setup.
+
+### 3. rgthree-comfy (soft requirement)
 Unlimited LoRAs need [rgthree-comfy](https://github.com/rgthree/rgthree-comfy) installed in ComfyUI — the extension drives its **Power Lora Loader** node to write any number of LoRAs into a single slot. Install it from the ComfyUI Manager, or clone it into `ComfyUI/custom_nodes/`.
 
 Without it everything else still works; you fall back to the numbered `*lora2*`, `*lora3*`… placeholders, where each LoRA needs its own hand-wired `LoraLoader` node and the workflow file sets the ceiling.
 
-### 3. Install Extension
+### 4. Install Extension
 1.  Open **SillyTavern**.
 2.  Navigate to **Extensions** -> **Install Extension**.
 3.  Paste the URL of this repository.

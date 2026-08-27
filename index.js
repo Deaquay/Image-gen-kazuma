@@ -710,6 +710,34 @@ async function onComfyOpenWorkflowEditorClick() {
 /** Every LoRA file ComfyUI can see. Filled by fetchComfyLists, read by the LoRA manager. */
 let availableLoras = [];
 
+// SillyTavern proxies checkpoints, samplers, schedulers and VAEs to ComfyUI but has no route for
+// LoRAs, so this is the one list the browser would have to fetch itself - which needs
+// --enable-cors-header and, because the ComfyUI URL is resolved browser-side, returns nothing when
+// SillyTavern is open on a phone or another machine. The bundled server-plugin/ closes that gap.
+// It is optional: without it we ask ComfyUI directly, which is fine on a same-machine setup.
+async function fetchLoraList(comfyUrl) {
+    try {
+        const res = await fetch('/api/plugins/kazuma-loras/list', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ url: comfyUrl }),
+        });
+        if (res.ok) return await res.json();
+        // 404 is the plugin simply not being installed; anything else it already logged server-side.
+        console.log(`[${extensionName}] LoRA plugin route returned ${res.status}, asking ComfyUI directly`);
+    } catch (e) {
+        console.log(`[${extensionName}] LoRA plugin route unavailable, asking ComfyUI directly`);
+    }
+
+    try {
+        const res = await fetch(`${comfyUrl}/models/loras`);
+        if (res.ok) return await res.json();
+    } catch (e) {
+        console.warn(`[${extensionName}] Could not reach ComfyUI for the LoRA list.`, e);
+    }
+    return null;
+}
+
 async function fetchComfyLists() {
     const comfyUrl = extension_settings[extensionName].comfyUrl;
     const modelSel = $("#kazuma_model_list");
@@ -745,11 +773,11 @@ async function fetchComfyLists() {
             if (extension_settings[extensionName].selectedScheduler) schedulerSel.val(extension_settings[extensionName].selectedScheduler);
         }
 
-        // Straight from ComfyUI: the LoraLoader combo only lists what a LoraLoader accepts, this is
-        // the folder itself, which is what the Power Lora Loader takes too.
-        const loraRes = await fetch(`${comfyUrl}/models/loras`);
-        if (loraRes.ok) {
-            availableLoras = await loraRes.json();
+        // The list itself: not the LoraLoader combo but the folder behind it, which is what the
+        // Power Lora Loader takes too.
+        const loras = await fetchLoraList(comfyUrl);
+        if (loras) {
+            availableLoras = loras;
             renderLoraQuickList();
         }
     } catch (e) {
