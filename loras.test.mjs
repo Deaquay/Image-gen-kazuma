@@ -4,7 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-    clampWeight, findProfileForContext, importLorasFromPowerNode, isPowerLoraNode, makeLora,
+    clampWeight, collectLoraTriggers, findProfileForContext, importLorasFromPowerNode, isPowerLoraNode, makeLora,
     migrateLegacyLoras, migrateSettingsToProfiles, powerNodeIsClaimed, resolveLoraPlaceholder,
     writePowerLoraNode,
 } from './loras.js';
@@ -171,6 +171,31 @@ import {
     assert.equal(l.enabled, true);
     assert.equal(makeLora('').enabled, false, 'an empty row starts off');
     assert.ok(l.min < l.max);
+}
+
+// --- per-LoRA trigger words ---
+{
+    const triggers = { 'a.safetensors': 'lyra_v2, blue hair', 'b.safetensors': 'ohwx dog', 'c.safetensors': '  ' };
+    const loras = [
+        { name: 'a.safetensors', enabled: true },
+        { name: 'b.safetensors', enabled: false },
+        { name: 'c.safetensors', enabled: true },
+        { name: 'd.safetensors', enabled: true },
+    ];
+
+    assert.equal(collectLoraTriggers(loras, triggers), 'lyra_v2, blue hair',
+        'only enabled LoRAs contribute, blank and unknown ones add nothing');
+
+    loras[1].enabled = true;
+    assert.equal(collectLoraTriggers(loras, triggers), 'lyra_v2, blue hair, ohwx dog', 'list order is kept');
+
+    // The trigger follows the file: swapping a row picks up the new file's words, not the old ones.
+    loras[0].name = 'b.safetensors';
+    assert.equal(collectLoraTriggers([loras[0]], triggers), 'ohwx dog');
+
+    assert.equal(collectLoraTriggers(loras, undefined), '', 'no map configured yet');
+    assert.equal(collectLoraTriggers(undefined, triggers), '');
+    assert.equal(collectLoraTriggers([{ name: '', enabled: true }], triggers), '', 'empty slot is skipped');
 }
 
 console.log('loras.test.mjs: all assertions passed');

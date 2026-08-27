@@ -161,6 +161,12 @@
     color: #e57373;
 }
 
+/* Its own line under the controls - trigger words are prose, not a 60px number. */
+.kazuma-lora-edit .kz-trigger {
+    flex-basis: 100%;
+    font-size: 12px;
+}
+
 .kazuma-lora-edit .kz-lbl {
     display: flex;
     align-items: center;

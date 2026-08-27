@@ -5,9 +5,9 @@ import { saveBase64AsFile } from "../../../utils.js";
 import { humanizedDateTime } from "../../../RossAscends-mods.js";
 import { Popup, POPUP_TYPE } from "../../../popup.js";
 import {
-    LORA_STEP, MAX_LORAS, clampWeight, findProfileForContext, importLorasFromPowerNode,
-    makeLora, migrateSettingsToProfiles, powerNodeIsClaimed, resolveLoraPlaceholder,
-    writePowerLoraNode,
+    LORA_STEP, MAX_LORAS, clampWeight, collectLoraTriggers, findProfileForContext,
+    importLorasFromPowerNode, makeLora, migrateSettingsToProfiles, powerNodeIsClaimed,
+    resolveLoraPlaceholder, writePowerLoraNode,
 } from "./loras.js";
 
 const extensionName = "Image-gen-kazuma";
@@ -145,6 +145,8 @@ const defaultSettings = {
     currentWorkflowName: "",
     selectedModel: "",
     loras: [],
+    // filename -> trigger words. Global, not per profile: see collectLoraTriggers.
+    loraTriggers: {},
     imgWidth: 1024,
     imgHeight: 1024,
     autoGenEnabled: false,
@@ -956,10 +958,10 @@ async function generateWithComfy(positivePrompt, target = null) {
 
 function injectParamsIntoWorkflow(workflow, promptText, finalSeed) {
     const s = extension_settings[extensionName];
-    // Positive suffix: LoRA trigger words and style tags that should ride along with every
-    // prompt, appended after whatever the model wrote.
-    const positiveSuffix = (s.customPositive || "").trim();
-    if (positiveSuffix) promptText = promptText ? `${promptText}, ${positiveSuffix}` : positiveSuffix;
+    // Triggers of the LoRAs that are on, then the profile-wide suffix, appended after whatever the
+    // model wrote. Toggling a LoRA carries its trigger words with it.
+    const extras = [collectLoraTriggers(loras, s.loraTriggers), (s.customPositive || "").trim()].filter(Boolean);
+    promptText = [promptText, ...extras].filter(Boolean).join(", ");
     const loras = s.loras || [];
     // Off / unconfigured slots on a classic LoraLoader still need a filename ComfyUI recognises.
     const loraFallback = loras.find(l => l.name)?.name || availableLoras[0] || "None";
@@ -1476,14 +1478,28 @@ function getCurrentLinkTargets() {
     };
 }
 
+// Which chat the last auto-switch ran for. CHAT_CHANGED also fires on reloads that did not change
+// chat at all - switching connection profiles reloads the visible chat - and treating those as a
+// fresh context threw away a profile the user had just picked by hand.
+let lastAutoSwitchContext = null;
+
 function onChatChangedForProfiles() {
     const s = extension_settings[extensionName];
     if (!s.enabled || !s.autoSwitchProfile) return;
 
-    const match = findProfileForContext(s.profiles, getCurrentLinkTargets());
-    // Nothing linked falls back to the default profile, so leaving a linked character can't leave
-    // you generating with its workflow.
-    switchProfile(match?.id || s.defaultProfileId);
+    const targets = getCurrentLinkTargets();
+    const contextKey = `${targets.chatId || ''}|${targets.characterAvatar || ''}|${targets.groupId || ''}`;
+    const sameChat = contextKey === lastAutoSwitchContext;
+    lastAutoSwitchContext = contextKey;
+
+    const match = findProfileForContext(s.profiles, targets);
+    // A linked profile always wins - it is the whole point of linking, and re-applying it on a
+    // reload is a no-op. Otherwise: nothing linked falls back to the default profile, so leaving a
+    // linked character can't leave you generating with its workflow, but staying in the same chat
+    // leaves your manual pick alone.
+    if (match) switchProfile(match.id);
+    else if (!sameChat) switchProfile(s.defaultProfileId);
+
     renderProfileLinks();
 }
 
@@ -1799,7 +1815,7 @@ async function openLoraManager() {
             <div class="menu_button lm-import" title="Pull the LoRAs hardcoded in this workflow's Power Lora Loader into the list"><i class="fa-solid fa-file-import"></i> Import from workflow</div>
             <span class="lm-count opacity50p" style="font-size:12px;"></span>
         </div>
-        <small class="opacity50p">Only the LoRAs you pick live here - <b>Add LoRA</b> opens the full searchable list and takes as many as you tick at once. Min/max set that row's slider range, so a LoRA that only behaves between 0 and 0.4 gets a slider for exactly that. Off sends it at strength 0, which changes nothing in the image, and the row stays so you can flip it back. Click a name to swap it for a different file.</small>
+        <small class="opacity50p">Only the LoRAs you pick live here - <b>Add LoRA</b> opens the full searchable list and takes as many as you tick at once. Min/max set that row's slider range, so a LoRA that only behaves between 0 and 0.4 gets a slider for exactly that. Off sends it at strength 0, which changes nothing in the image, and the row stays so you can flip it back. Click a name to swap it for a different file. <b>Trigger words</b> are appended to the prompt whenever that LoRA is on - they are stored against the filename, so you type them once and every profile using that LoRA gets them.</small>
     </div>
     `);
 
@@ -1822,6 +1838,7 @@ async function openLoraManager() {
                 <label class="kz-lbl">wt<input type="number" class="text_pole kz-wt" style="width:60px;"></label>
                 <div class="menu_button kz-up" title="Move up"><i class="fa-solid fa-arrow-up"></i></div>
                 <div class="menu_button kz-del" title="Remove"><i class="fa-solid fa-trash"></i></div>
+                <input type="text" class="text_pole kz-trigger" placeholder="Trigger words — added to the prompt while this LoRA is on">
             </div>`);
 
             const missing = lora.name && availableLoras.length && !availableLoras.includes(lora.name);
@@ -1833,6 +1850,16 @@ async function openLoraManager() {
             $row.find('.kz-min').val(lora.min);
             $row.find('.kz-max').val(lora.max);
             $row.find('.kz-wt').attr({ min: lora.min, max: lora.max, step: LORA_STEP }).val(lora.weight);
+            $row.find('.kz-trigger').val(s.loraTriggers?.[lora.name] || '').prop('disabled', !lora.name);
+
+            $row.find('.kz-trigger').on('input', function () {
+                if (!lora.name) return;
+                s.loraTriggers = s.loraTriggers || {};
+                const text = this.value.trim();
+                if (text) s.loraTriggers[lora.name] = text;
+                else delete s.loraTriggers[lora.name];
+                saveSettingsDebounced();
+            });
 
             $row.find('.kz-name').on('click', async function () {
                 const [picked] = await pickLoras({ single: true, exclude: s.loras.map(l => l.name).filter(n => n && n !== lora.name) });

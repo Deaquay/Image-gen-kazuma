@@ -28,6 +28,23 @@ export function makeLora(name = '', weight = 1.0) {
     };
 }
 
+/**
+ * Trigger words of every LoRA that is actually on, in list order, ready to append to the prompt.
+ * A LoRA the model was never told to invoke does nothing, so its triggers travel with its toggle
+ * instead of being pasted into the prompt suffix by hand every time.
+ *
+ * Keyed by filename, and stored outside the profiles on purpose: the trigger belongs to the file,
+ * not to one profile's use of it. Type it once and every profile that loads that LoRA gets it,
+ * and swapping a row for a different file picks up the right words instead of the old ones.
+ */
+export function collectLoraTriggers(loras, triggers) {
+    return (loras || [])
+        .filter(l => l?.enabled && l.name)
+        .map(l => (triggers?.[l.name] || '').trim())
+        .filter(Boolean)
+        .join(', ');
+}
+
 export function clampWeight(lora) {
     const w = parseFloat(lora?.weight);
     if (isNaN(w)) return 0;
