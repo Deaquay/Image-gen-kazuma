@@ -956,10 +956,10 @@ async function generateWithComfy(positivePrompt, target = null) {
 
 function injectParamsIntoWorkflow(workflow, promptText, finalSeed) {
     const s = extension_settings[extensionName];
-    // Global positive: LoRA trigger words and style tags that should ride along with every
+    // Positive suffix: LoRA trigger words and style tags that should ride along with every
     // prompt, appended after whatever the model wrote.
-    const globalPositive = (s.customPositive || "").trim();
-    if (globalPositive) promptText = promptText ? `${promptText}, ${globalPositive}` : globalPositive;
+    const positiveSuffix = (s.customPositive || "").trim();
+    if (positiveSuffix) promptText = promptText ? `${promptText}, ${positiveSuffix}` : positiveSuffix;
     const loras = s.loras || [];
     // Off / unconfigured slots on a classic LoraLoader still need a filename ComfyUI recognises.
     const loraFallback = loras.find(l => l.name)?.name || availableLoras[0] || "None";
