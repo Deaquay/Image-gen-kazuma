@@ -190,6 +190,62 @@ export function migrateSettingsToProfiles(settings, makeId) {
 }
 
 /**
+ * The appearance text used to live in the profile state, which was wrong: an appearance describes
+ * one character and is useless on any other, while a profile is a rendering setup several
+ * characters can share. Move it into a map keyed the way links already are - avatar filename for a
+ * character, `group:<id>` for a group.
+ *
+ * A profile's text goes to every character it was linked to, since that is who it was describing.
+ * The live value is fresher than the active profile's snapshot (snapshots only refresh on switch
+ * away), so it wins for that profile's links. Text on a profile linked to nothing has no character
+ * to belong to and is dropped.
+ *
+ * Returns true if anything changed.
+ */
+export function migrateAppearanceToCharacters(settings) {
+    if (!('charAppearance' in settings)) return false;
+
+    const map = settings.charAppearances = settings.charAppearances || {};
+    for (const profile of Object.values(settings.profiles || {})) {
+        const text = (profile.id === settings.activeProfileId
+            ? settings.charAppearance
+            : profile.state?.charAppearance) || '';
+        for (const link of profile.links || []) {
+            if (text.trim() && link.type === 'character' && !map[link.id]) map[link.id] = text;
+        }
+        delete profile.state?.charAppearance;
+    }
+    delete settings.charAppearance;
+    return true;
+}
+
+/**
+ * Where the appearance box writes. A group has no single character while it is just sitting there,
+ * so it gets one shared entry; generation prefers whoever actually spoke, see speakerAvatar.
+ *
+ * ponytail: the box always edits the group-wide entry, never a member's. Show a member picker if
+ * editing one character's text without leaving the group ever matters.
+ */
+export function appearanceKey({ characterAvatar, groupId } = {}) {
+    if (groupId) return `group:${groupId}`;
+    return characterAvatar || '';
+}
+
+/**
+ * Who a message is from, as an avatar filename - the key an appearance is stored under. Images are
+ * generated off a finished reply, so in a group the speaker is known by then and their own text
+ * beats the group's.
+ *
+ * Group messages carry original_avatar; ones written before ST added it have only a name, so fall
+ * back to matching that the way group-chats.js does. A user or system message has no character.
+ */
+export function speakerAvatar(message, characters) {
+    if (!message || message.is_user || message.is_system) return '';
+    if (message.original_avatar) return message.original_avatar;
+    return (characters || []).find(c => c.name === message.name)?.avatar || '';
+}
+
+/**
  * Which profile owns the current chat. Chat links beat character/group links, so pinning one
  * specific chat overrides the character-wide default.
  */

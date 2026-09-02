@@ -144,7 +144,7 @@ under *General*.
         *   **Style Constraint:** What the image should look like — *Realistic Photograph*, *3D Render*, *Cartoon Illustration*, *Anime Illustration*, *Hyperrealistic Digital Illustration*, or *None* to leave it to the model.
         *   **Camera Perspective:** Forces the image to be *Scene-focused*, *Character-focused*, or *POV*.
         *   Each of the three has a **Custom...** option with its own text box, if none of the presets say what you want.
-        *   **Character Appearance** (optional): how {{char}} should look, in your words. Whatever you put here takes precedence over the model's own reading of the character card, so a character it keeps drawing wrong stays fixed. Empty means it interprets the card as before. Saved in the image profile, so it travels with the character the profile is linked to.
+        *   **Character Appearance** (optional): how {{char}} should look, in your words. Whatever you put here takes precedence over the model's own reading of the character card, so a character it keeps drawing wrong stays fixed. Empty means it interprets the card as before. Saved per character (by avatar), not in the image profile: swapping to another character brings back its own text, and swapping back restores yours. In a group chat the box holds a group-wide fallback, but generation runs off a finished reply so it knows who spoke - a member with their own text set elsewhere gets theirs.
     *   The extension constructs a complex system instruction behind the scenes to ensure the LLM adheres to these constraints.
 
 *   **Strategy: Use Specific Connection Profile** (set under *General*)
@@ -209,7 +209,7 @@ Everything listed here is new in this fork; the rest of the extension is upstrea
 *   **Scheduler selection**, missing upstream entirely.
 *   **krea2 / krea2beta / krea2mini** prompt formats.
 *   **Style Constraint selector.** Photograph, 3D render, cartoon, anime or hyperrealistic digital illustration, added as its own line in the instruction. Defaults to *None*, so existing profiles generate exactly as before.
-*   **Character Appearance override.** An optional per-profile description of {{char}} that the prompt LLM must prefer over the character card. Upstream had no way to correct an interpretation you did not like short of editing the card itself.
+*   **Character Appearance override.** An optional per-character description of {{char}} that the prompt LLM must prefer over the character card. Upstream had no way to correct an interpretation you did not like short of editing the card itself. It is stored against the character's avatar rather than the image profile, so each character keeps its own and swapping restores it, groups included - the reply that triggers generation names the speaker, so their own text is preferred over the group's. Text written before this change is moved onto every character the owning profile was linked to; text on a profile linked to no character has nobody to belong to and is dropped.
 *   **Custom option on all three prompt knobs.** Prompt Instructions, Style Constraint and Camera Perspective each get a *Custom...* entry with its own text box. The presets are examples that work, not the only things you are allowed to want.
 *   Macro resolution (`{{char}}`, `{{user}}`, `{{group_info}}`, …) in system prompts, chat history and instructions — upstream only resolved its own placeholders, and only on the specific-preset path.
 *   `<think>` block stripping from reasoning models.

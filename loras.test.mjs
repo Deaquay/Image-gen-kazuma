@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import {
     clampWeight, collectLoraTriggers, findProfileForContext, importLorasFromPowerNode, isPowerLoraNode, makeLora,
+    appearanceKey, migrateAppearanceToCharacters, speakerAvatar,
     migrateLegacyLoras, migrateSettingsToProfiles, powerNodeIsClaimed, resolveLoraPlaceholder,
     writePowerLoraNode,
 } from './loras.js';
@@ -196,6 +197,64 @@ import {
     assert.equal(collectLoraTriggers(loras, undefined), '', 'no map configured yet');
     assert.equal(collectLoraTriggers(undefined, triggers), '');
     assert.equal(collectLoraTriggers([{ name: '', enabled: true }], triggers), '', 'empty slot is skipped');
+}
+
+// --- appearance moves from the profile to the character ---
+{
+    assert.equal(appearanceKey({ characterAvatar: 'makima.png' }), 'makima.png');
+    assert.equal(appearanceKey({ characterAvatar: 'makima.png', groupId: 'g1' }), 'group:g1', 'a group chat has no single character');
+    assert.equal(appearanceKey({}), '', 'no chat open yet');
+    assert.equal(appearanceKey(), '');
+
+    const settings = {
+        charAppearance: 'live text',
+        activeProfileId: 'a',
+        profiles: {
+            a: { id: 'a', links: [{ type: 'character', id: 'makima.png' }], state: { charAppearance: 'stale', steps: 20 } },
+            b: { id: 'b', links: [{ type: 'character', id: 'power.png' }, { type: 'chat', id: 'c1' }], state: { charAppearance: 'power text' } },
+            c: { id: 'c', links: [], state: { charAppearance: 'homeless' } },
+            d: { id: 'd', links: [{ type: 'group', id: 'g1' }], state: {} },
+        },
+    };
+    assert.equal(migrateAppearanceToCharacters(settings), true);
+
+    assert.equal(settings.charAppearances['makima.png'], 'live text', 'the live value beats the active profile\'s stale snapshot');
+    assert.equal(settings.charAppearances['power.png'], 'power text', 'other profiles use their snapshot');
+    assert.equal('c1' in settings.charAppearances, false, 'chat links are not characters');
+    assert.deepEqual(Object.keys(settings.charAppearances).sort(), ['makima.png', 'power.png'],
+        'text on a profile linked to nothing has no character to belong to');
+    assert.equal('charAppearance' in settings, false, 'old key is gone, so the migration cannot run twice');
+    assert.equal('charAppearance' in settings.profiles.b.state, false, 'and gone from the snapshots');
+    assert.equal(settings.profiles.a.state.steps, 20, 'the rest of the profile state is untouched');
+
+    const snapshot = structuredClone(settings);
+    assert.equal(migrateAppearanceToCharacters(settings), false, 'idempotent');
+    assert.deepEqual(settings, snapshot);
+
+    // An existing per-character entry is never overwritten by a migrating profile.
+    const partial = { charAppearance: 'new', activeProfileId: 'a', charAppearances: { 'makima.png': 'kept' },
+        profiles: { a: { id: 'a', links: [{ type: 'character', id: 'makima.png' }], state: {} } } };
+    migrateAppearanceToCharacters(partial);
+    assert.equal(partial.charAppearances['makima.png'], 'kept');
+
+    const fresh = {};
+    assert.equal(migrateAppearanceToCharacters(fresh), false, 'nothing to do on a fresh install');
+    assert.deepEqual(fresh, {});
+}
+
+// --- in a group, the speaker's own appearance wins ---
+{
+    const characters = [{ name: 'Makima', avatar: 'makima.png' }, { name: 'Power', avatar: 'power.png' }];
+
+    assert.equal(speakerAvatar({ name: 'Power', original_avatar: 'power.png' }, characters), 'power.png');
+    assert.equal(speakerAvatar({ name: 'Makima' }, characters), 'makima.png',
+        'a message from before original_avatar existed falls back to the name');
+    assert.equal(speakerAvatar({ name: 'Makima', original_avatar: 'makima.png', is_user: true }, characters), '',
+        'the user is not a character');
+    assert.equal(speakerAvatar({ name: 'Ghost' }, characters), '', 'an unknown name resolves to nobody');
+    assert.equal(speakerAvatar({ name: 'System', is_system: true }, characters), '');
+    assert.equal(speakerAvatar(undefined, characters), '', 'an empty chat has no speaker');
+    assert.equal(speakerAvatar({ name: 'Power', original_avatar: 'power.png' }, undefined), 'power.png');
 }
 
 console.log('loras.test.mjs: all assertions passed');

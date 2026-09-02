@@ -1,13 +1,12 @@
-/* eslint-disable no-undef */
 import { extension_settings, getContext } from "../../../extensions.js";
 import { saveSettingsDebounced, generateQuietPrompt, saveChat, reloadCurrentChat, eventSource, event_types, addOneMessage, getRequestHeaders, appendMediaToMessage, substituteParams, getCurrentChatId, getThumbnailUrl } from "../../../../script.js";
 import { saveBase64AsFile } from "../../../utils.js";
 import { humanizedDateTime } from "../../../RossAscends-mods.js";
 import { Popup, POPUP_TYPE } from "../../../popup.js";
 import {
-    LORA_STEP, MAX_LORAS, clampWeight, collectLoraTriggers, findProfileForContext,
-    importLorasFromPowerNode, makeLora, migrateSettingsToProfiles, powerNodeIsClaimed,
-    resolveLoraPlaceholder, writePowerLoraNode,
+    LORA_STEP, MAX_LORAS, appearanceKey, clampWeight, collectLoraTriggers, findProfileForContext,
+    importLorasFromPowerNode, makeLora, migrateAppearanceToCharacters, migrateSettingsToProfiles,
+    powerNodeIsClaimed, resolveLoraPlaceholder, speakerAvatar, writePowerLoraNode,
 } from "./loras.js";
 import { PERSPECTIVES, PROMPT_FORMATS, STYLE_CONSTRAINTS, pickInstruction } from "./prompt-knobs.js";
 
@@ -118,7 +117,8 @@ const defaultSettings = {
     promptPerspectiveCustom: "",
     promptRole: "engineer",
     promptExtra: "",
-    charAppearance: "",
+    // Appearance belongs to the character, not the profile: avatar filename -> description.
+    charAppearances: {},
     profiles: {},
     activeProfileId: "",
     defaultProfileId: "",
@@ -183,6 +183,8 @@ async function loadSettings() {
     ensureProfiles();
 
     migrateCustomSystemPrompts();
+    // After ensureProfiles, so a fresh install's text lands on the profile it is actually linked to.
+    if (migrateAppearanceToCharacters(extension_settings[extensionName])) saveSettingsDebounced();
 
     $("#kazuma_enable").prop("checked", extension_settings[extensionName].enabled);
     $("#kazuma_debug").prop("checked", extension_settings[extensionName].debugPrompt);
@@ -201,7 +203,7 @@ async function loadSettings() {
     $("#kazuma_prompt_persp_custom").val(extension_settings[extensionName].promptPerspectiveCustom || "");
     $("#kazuma_prompt_role").val(extension_settings[extensionName].promptRole || "engineer");
     $("#kazuma_prompt_extra").val(extension_settings[extensionName].promptExtra || "");
-    $("#kazuma_char_appearance").val(extension_settings[extensionName].charAppearance || "");
+    refreshAppearanceField();
     toggleCustomPromptInputs();
 
     $("#kazuma_negative").val(extension_settings[extensionName].customNegative);
@@ -804,7 +806,7 @@ async function onGeneratePrompt() {
 
         const role = PROMPT_ROLES[s.promptRole] || PROMPT_ROLES.engineer;
         const extra = (s.promptExtra || "").trim();
-        const appearance = (s.charAppearance || "").trim();
+        const appearance = currentAppearance().trim();
 
         // A blank Custom box falls back to the preset default for the two knobs that must always
         // resolve; Style Constraint just drops its line instead of sending a dangling label.
@@ -1173,7 +1175,12 @@ jQuery(async () => {
         $("#kazuma_prompt_persp_custom").on("input", (e) => { extension_settings[extensionName].promptPerspectiveCustom = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_prompt_role").on("change", (e) => { extension_settings[extensionName].promptRole = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_prompt_extra").on("input", (e) => { extension_settings[extensionName].promptExtra = $(e.target).val(); saveSettingsDebounced(); });
-        $("#kazuma_char_appearance").on("input", (e) => { extension_settings[extensionName].charAppearance = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_char_appearance").on("input", (e) => {
+            const key = appearanceKey(getCurrentLinkTargets());
+            if (!key) return;
+            extension_settings[extensionName].charAppearances[key] = $(e.target).val();
+            saveSettingsDebounced();
+        });
         $("#kazuma_profile_strategy").on("change", (e) => {
             extension_settings[extensionName].profileStrategy = $(e.target).val();
             toggleProfileVisibility();
@@ -1315,7 +1322,7 @@ const PROFILE_STATE_KEYS = [
     'steps', 'cfg', 'denoise', 'clipSkip',
     'imgWidth', 'imgHeight', 'customSeed', 'customNegative', 'customPositive',
     'promptStyle', 'promptStyleCustom', 'styleConstraint', 'styleConstraintCustom',
-    'promptPerspective', 'promptPerspectiveCustom', 'promptRole', 'promptExtra', 'charAppearance',
+    'promptPerspective', 'promptPerspectiveCustom', 'promptRole', 'promptExtra',
     'loras',
 ];
 
@@ -1388,7 +1395,7 @@ function applyProfileState(state) {
     $("#kazuma_prompt_persp_custom").val(s.promptPerspectiveCustom || "");
     $("#kazuma_prompt_role").val(s.promptRole || "engineer");
     $("#kazuma_prompt_extra").val(s.promptExtra || "");
-    $("#kazuma_char_appearance").val(s.charAppearance || "");
+    // Appearance is deliberately absent: it belongs to the character, not to this profile.
     // .val() never fires change, so the custom boxes have to be re-toggled by hand.
     toggleCustomPromptInputs();
 
@@ -1452,6 +1459,33 @@ function getCurrentLinkTargets() {
     };
 }
 
+/* --- CHARACTER APPEARANCE ---
+ * Stored per character rather than per profile: a description of {{char}} is unusable on anyone
+ * else, so switching characters has to bring back that character's own text. Keyed by avatar
+ * filename, the same identity the profile links use - which means a character's text follows them
+ * into group chats too, since a finished reply names who spoke.
+ */
+function appearanceText(key) {
+    return (key && extension_settings[extensionName].charAppearances?.[key]) || "";
+}
+
+/** What the prompt gets. In a group the speaker's own text wins, with the group entry as fallback. */
+function currentAppearance() {
+    const targets = getCurrentLinkTargets();
+    if (targets.groupId) {
+        const context = getContext();
+        const own = appearanceText(speakerAvatar(context.chat?.[context.chat.length - 1], context.characters));
+        if (own) return own;
+    }
+    return appearanceText(appearanceKey(targets));
+}
+
+/** The only writer of the appearance textarea, so no profile switch can clobber it. */
+function refreshAppearanceField() {
+    const key = appearanceKey(getCurrentLinkTargets());
+    $("#kazuma_char_appearance").val(appearanceText(key)).prop("disabled", !key);
+}
+
 // Which chat the last auto-switch ran for. CHAT_CHANGED also fires on reloads that did not change
 // chat at all - switching connection profiles reloads the visible chat - and treating those as a
 // fresh context threw away a profile the user had just picked by hand.
@@ -1459,6 +1493,8 @@ let lastAutoSwitchContext = null;
 
 function onChatChangedForProfiles() {
     const s = extension_settings[extensionName];
+    // Ahead of the guards: the appearance box follows the character even with auto-switch off.
+    refreshAppearanceField();
     if (!s.enabled || !s.autoSwitchProfile) return;
 
     const targets = getCurrentLinkTargets();
