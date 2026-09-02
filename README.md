@@ -11,7 +11,7 @@ Image Gen Kazuma is a power-user extension designed to seamlessly bridge **Silly
 ## ✨ Key Features
 
 ### 🧠 Smart & Context-Aware
-*   **Smart Prompting Logic:** Automatically formats prompts based on your preferred model style (e.g., Booru tags for Pony/Illustrious vs. Natural Language for SDXL/qwen) and camera perspective.
+*   **Smart Prompting Logic:** Three knobs shape the prompt the LLM writes — **Prompt Instructions** (the format: Booru tags for Pony/Illustrious, natural language for SDXL/qwen, expanded paragraphs for Krea), **Style Constraint** (photograph, 3D render, cartoon, anime, hyperrealistic) and **Camera Perspective**. Every one of them also takes **Custom...**, so the presets are worked examples rather than a menu you are stuck inside.
 *   **Image Profiles:** A profile is one workflow plus everything that has to travel with it — checkpoint, sampler, scheduler, steps/CFG/denoise/CLIP, resolution, positive and negative prompt and the whole LoRA list. Link a profile to characters (by avatar file, so two Lyras never collide), to groups, or to one specific chat, and it swaps itself in when you open them. Two profiles can share a workflow with completely different parameters.
 *   **LoRA Trigger Words:** Each LoRA carries its own trigger words, appended to the prompt only while that LoRA is switched on. Flip a LoRA on, generate, flip it off — the words come and go with it. They are stored against the filename, so you type them once and every profile using that LoRA gets them.
 *   **Positive Prompt Suffix:** Text appended to every prompt the LLM writes, next to the negative override in Image Parameters — a style tag or quality string you always want. It lives in the profile, so it follows the character it belongs to.
@@ -133,17 +133,24 @@ ComfyUI rejects the entire prompt if `lora_name` is not a file it can see.
 ## 🎨 Prompting & Automation Guide
 
 ### 1. Smart Prompt Logic
-Under the **Prompt Generation** section, you can choose how the extension generates prompts.
+The **Image Profile** section owns the prompt instructions — they swap with the profile when you
+switch characters or chats, so everything that shapes the prompt text lives under the profile, not
+under *General*.
 
-*   **Strategy: Use Current Active Preset** (Recommended)
-    *   This uses your *current* SillyTavern text generation preset.
-    *   **Prompt Builder:** A menu will appear allowing you to select:
-        *   **Model Style:** Tells the LLM to write in *Booru Tags* (for Anime/Pony models) or *Natural Prose* (for SDXL/qwen/Realism).
+*   **Strategy: Follow Current Connection Profile** (Recommended, set under *General*)
+    *   This uses your *current* SillyTavern connection profile and text generation preset.
+    *   **Prompt Builder:** The knobs under the profile allow you to select:
+        *   **Prompt Instructions:** How the prompt itself is written — *Booru Tags* (for Anime/Pony models), *Natural Prose* (for SDXL/qwen/Realism), or one of the expanded-paragraph Krea formats.
+        *   **Style Constraint:** What the image should look like — *Realistic Photograph*, *3D Render*, *Cartoon Illustration*, *Anime Illustration*, *Hyperrealistic Digital Illustration*, or *None* to leave it to the model.
         *   **Camera Perspective:** Forces the image to be *Scene-focused*, *Character-focused*, or *POV*.
+        *   Each of the three has a **Custom...** option with its own text box, if none of the presets say what you want.
+        *   **Character Appearance** (optional): how {{char}} should look, in your words. Whatever you put here takes precedence over the model's own reading of the character card, so a character it keeps drawing wrong stays fixed. Empty means it interprets the card as before. Saved in the image profile, so it travels with the character the profile is linked to.
     *   The extension constructs a complex system instruction behind the scenes to ensure the LLM adheres to these constraints.
 
-*   **Strategy: Use Specific Preset** (Legacy)
-    *   Forces SillyTavern to switch to a specific Chat Completion Presets just for the image prompt generation, then switches back.
+*   **Strategy: Use Specific Connection Profile** (set under *General*)
+    *   Fires the prompt request at its own connection profile without touching your active one.
+    *   The **Generation Context** preset (next to it) decides the system prompt, how many recent
+        messages and which character info the generator sees — only in effect under this strategy.
 
 ### 2. Auto-Generation
 *   **Enable:** Automatically generates an image after the character replies.
@@ -200,7 +207,10 @@ Everything listed here is new in this fork; the rest of the extension is upstrea
 *   **Include Tracker.** Optionally prepends the newest [SillyTavern-Tracker-Enhanced](https://github.com/kaldigo/SillyTavern-Tracker-Enhanced) tracker to the scene, which keeps clothing and similar details consistent. Soft dependency — read straight off the message.
 *   **AI Role selector.** The instruction was hardcoded to "Write an image generation prompt", which some models refuse outright. Pick *Prompt Engineer* (upstream behaviour) or *Scene Description Writer*.
 *   **Scheduler selection**, missing upstream entirely.
-*   **krea2 / krea2beta / krea2mini** prompt styles.
+*   **krea2 / krea2beta / krea2mini** prompt formats.
+*   **Style Constraint selector.** Photograph, 3D render, cartoon, anime or hyperrealistic digital illustration, added as its own line in the instruction. Defaults to *None*, so existing profiles generate exactly as before.
+*   **Character Appearance override.** An optional per-profile description of {{char}} that the prompt LLM must prefer over the character card. Upstream had no way to correct an interpretation you did not like short of editing the card itself.
+*   **Custom option on all three prompt knobs.** Prompt Instructions, Style Constraint and Camera Perspective each get a *Custom...* entry with its own text box. The presets are examples that work, not the only things you are allowed to want.
 *   Macro resolution (`{{char}}`, `{{user}}`, `{{group_info}}`, …) in system prompts, chat history and instructions — upstream only resolved its own placeholders, and only on the specific-preset path.
 *   `<think>` block stripping from reasoning models.
 *   Regrouped settings drawer: prompt-shaping controls in one place, server address and debug toggles collapsed out of the way.
@@ -210,6 +220,7 @@ Everything listed here is new in this fork; the rest of the extension is upstrea
 *   ComfyUI history polling had no exit except success — a prompt that never landed polled until the tab closed. Now capped at 20 minutes, with no overlapping polls.
 *   Auto-gen fired on a character's greeting: ST tags those events `first_message` and the handler dropped that argument.
 *   Placeholders reached the model verbatim when using a Custom System Prompt Override, or when Include Character Information was unchecked.
+*   The format selector was labelled *Model Style* in the UI but reached the LLM as `Style Constraint:`, so a formatting rule was announced as an art-direction one. Both ends now say **Prompt Instructions**, and *Style Constraint* means what it says. *Extra Instructions* had the same split — it arrived as `Additional Req: , your text`, leading comma and all — and now matches its label and is omitted entirely when empty.
 
 **Removed**
 *   Per-preset temperature and max-tokens controls — they were never sent with the request. Sampling comes from the completion preset attached to the connection profile.

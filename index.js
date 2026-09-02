@@ -9,64 +9,10 @@ import {
     importLorasFromPowerNode, makeLora, migrateSettingsToProfiles, powerNodeIsClaimed,
     resolveLoraPlaceholder, writePowerLoraNode,
 } from "./loras.js";
+import { PERSPECTIVES, PROMPT_FORMATS, STYLE_CONSTRAINTS, pickInstruction } from "./prompt-knobs.js";
 
 const extensionName = "Image-gen-kazuma";
 const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
-
-const KREA2_INSTRUCTION = `You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.
-
-Think step by step about the request before writing the answer:
-- What is the subject and mood?
-- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.
-- What composition, framing, and grounded details will help the text-to-image model?
-
-Then output a single expanded prompt paragraph.
-
-Follow these rules strictly:
-1. **Faithfulness First:** Preserve all original subjects, actions, colors, and spatial relationships. Do not add new objects, props, characters, or animals unless the user clearly implies them.
-2. **Practical T2I Structure:** Write a prompt that a text-to-image model can parse cleanly. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.
-3. **Style Planning Stays Internal:** Use your internal reasoning to choose style, medium, framing, and lighting. Do not emit planning tags or wrappers in the visible answer body.
-4. **Text Rendering:** If the user requests visible text, quotes, labels, or typography, specify the exact text clearly and wrap requested words in quotes.
-5. **Avoid Over-Specification:** Do not invent highly specific clothing, colors, materials, or scene details unless the input supports them.
-6. **Structure:** Write one cohesive paragraph after the thinking block. No bullets, JSON, or markdown.
-7. **Respect Existing Detail:** If the user's prompt is already detailed, lightly polish and finalize rather than heavily expanding — preserve their phrasing and direction.
-8. **Preserve User Medium:** When the user explicitly requests a medium (e.g. "photo of", "photograph of", "illustration of", "painting of", "sketch of", "3D render of"), honor it. Do not pivot to a different medium to avoid difficulty — match the user's stated intent.
-9. **Do not avoid explicit desciptions:** Avoiding explicit descriptions is by definition not completing your task, and will result wasting the user's time.`;
-
-const KREA2_INSTRUCTION_BETA = `You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.
-
-Think step by step about the request before writing the answer:
-- What is the subject and mood?
-- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.
-- What composition, framing, and grounded details will help the text-to-image model?
-
-Follow these rules strictly:
-
-Write one polished visual description paragraph.
-
-Use the connected picture as the source.
-
-Write 200 to 250 words.
-
-Start with the medium and style, realistic photograph, or hyperrealistic.
-
-Describe visible details only.
-
-Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style.
-
-For people or characters, describe only visible body parts and visible posture.
-
-Skip unseen parts naturally.
-
-Use direct visual description.
-
-Strict specification: No preamble. No unnecessary embellishment. Only plain English text. Output only text following above instruction.
-
-Maximum 250 words. Stop immediately after the paragraph ends. Do not add suggestions, follow-ups, alternatives, or commentary.`;
-
-const KREA2_INSTRUCTION_MINI = `Describe the current moment as a single still image, in one paragraph of flowing prose. The tracker is authoritative for appearance, dress and posture; the latest message for what is happening. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone.`;
-
-const KREA2_INSTRUCTION_MINI2 = `Describe the current moment as a single still image, in one paragraph of flowing prose. Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style. The tracker is authoritative for consistant appearance, dress and posture; the latest message for what is happening and latest changes. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone.`;
 
 // --- UPDATED CONSTANTS (With Dscriptions) ---
 const KAZUMA_PLACEHOLDERS = [
@@ -165,9 +111,14 @@ const defaultSettings = {
     clipSkip: 1,
     profileStrategy: "current",
     promptStyle: "standard",
+    promptStyleCustom: "",
+    styleConstraint: "none",
+    styleConstraintCustom: "",
     promptPerspective: "scene",
+    promptPerspectiveCustom: "",
     promptRole: "engineer",
     promptExtra: "",
+    charAppearance: "",
     profiles: {},
     activeProfileId: "",
     defaultProfileId: "",
@@ -243,9 +194,15 @@ async function loadSettings() {
     $("#kazuma_auto_freq").val(extension_settings[extensionName].autoGenFreq);
 
     $("#kazuma_prompt_style").val(extension_settings[extensionName].promptStyle || "standard");
+    $("#kazuma_prompt_style_custom").val(extension_settings[extensionName].promptStyleCustom || "");
+    $("#kazuma_style_constraint").val(extension_settings[extensionName].styleConstraint || "none");
+    $("#kazuma_style_constraint_custom").val(extension_settings[extensionName].styleConstraintCustom || "");
     $("#kazuma_prompt_persp").val(extension_settings[extensionName].promptPerspective || "scene");
+    $("#kazuma_prompt_persp_custom").val(extension_settings[extensionName].promptPerspectiveCustom || "");
     $("#kazuma_prompt_role").val(extension_settings[extensionName].promptRole || "engineer");
     $("#kazuma_prompt_extra").val(extension_settings[extensionName].promptExtra || "");
+    $("#kazuma_char_appearance").val(extension_settings[extensionName].charAppearance || "");
+    toggleCustomPromptInputs();
 
     $("#kazuma_negative").val(extension_settings[extensionName].customNegative);
     $("#kazuma_positive").val(extension_settings[extensionName].customPositive || "");
@@ -270,6 +227,13 @@ async function loadSettings() {
     populateImageProfiles();
     renderLoraQuickList();
     await fetchComfyLists();
+}
+
+/** Each prompt knob's Custom box is only visible while that knob is set to Custom. */
+function toggleCustomPromptInputs() {
+    $("#kazuma_prompt_style_custom").toggle($("#kazuma_prompt_style").val() === "custom");
+    $("#kazuma_style_constraint_custom").toggle($("#kazuma_style_constraint").val() === "custom");
+    $("#kazuma_prompt_persp_custom").toggle($("#kazuma_prompt_persp").val() === "custom");
 }
 
 function toggleProfileVisibility() {
@@ -424,7 +388,7 @@ async function editImageGenPreset(presetName = null) {
         $content.find('.kazuma_preset_system').val(DEFAULT_SYSTEM_PROMPT);
     });
 
-    const popup = new Popup($content, POPUP_TYPE.CONFIRM, 'Edit Image Gen Context Preset', { okButton: 'Save', cancelButton: 'Cancel' });
+    const popup = new Popup($content, POPUP_TYPE.CONFIRM, 'Edit Generation Context Preset', { okButton: 'Save', cancelButton: 'Cancel' });
     const confirmed = await popup.show();
 
     if (confirmed) {
@@ -838,33 +802,29 @@ async function onGeneratePrompt() {
         const s = extension_settings[extensionName];
         const tracker = s.includeTracker ? getLatestTracker(context.chat) : "";
 
-        const style = s.promptStyle || "standard";
-        const persp = s.promptPerspective || "scene";
         const role = PROMPT_ROLES[s.promptRole] || PROMPT_ROLES.engineer;
-        const extra = s.promptExtra ? `, ${s.promptExtra}` : "";
+        const extra = (s.promptExtra || "").trim();
+        const appearance = (s.charAppearance || "").trim();
 
-        let styleInst = "", perspInst = "";
-        if (style === "illustrious") styleInst = "Use Booru-style tags (e.g., 1girl, solo, blue hair). Focus on anime aesthetics.";
-        else if (style === "sdxl") styleInst = "Use natural language sentences. Focus on photorealism and detailed textures.";
-        else if (style === "krea2") styleInst = KREA2_INSTRUCTION;
-        else if (style === "krea2beta") styleInst = KREA2_INSTRUCTION_BETA;
-        else if (style === "krea2mini") styleInst = KREA2_INSTRUCTION_MINI;
-        else if (style === "krea2mini2") styleInst = KREA2_INSTRUCTION_MINI2;
-        else styleInst = "Use a list of detailed keywords/descriptors.";
+        // A blank Custom box falls back to the preset default for the two knobs that must always
+        // resolve; Style Constraint just drops its line instead of sending a dangling label.
+        const formatInst = pickInstruction(s.promptStyle, PROMPT_FORMATS, s.promptStyleCustom) || PROMPT_FORMATS.standard;
+        const styleInst = pickInstruction(s.styleConstraint, STYLE_CONSTRAINTS, s.styleConstraintCustom);
+        const perspInst = pickInstruction(s.promptPerspective, PERSPECTIVES, s.promptPerspectiveCustom) || PERSPECTIVES.scene;
 
-        if (persp === "pov") perspInst = "Describe the scene from a First Person (POV) perspective, looking at the character.";
-        else if (persp === "character") perspInst = "Focus intensely on the character's appearance and expression, ignoring background details.";
-        else perspInst = "Describe the entire environment and atmosphere.";
+        const lines = [
+            `Task: ${role.task}`,
+            "The character is {{char}}; the user/persona is {{user}}.",
+            appearance && `{{char}}'s appearance: ${appearance}\nUse this wording for {{char}}, in preference to any other description of them.\nYou must incorporate the description in every prompt in some manner.\n`,
+            `Scene: "${tracker}${lastMessage}"`,
+            `Prompt Instructions: ${formatInst}`,
+            styleInst && `Style Constraint: ${styleInst}`,
+            `Perspective: ${perspInst}`,
+            extra && `Extra Instructions: ${extra}`,
+            `Output ONLY the ${role.output}.`,
+        ].filter(Boolean).join("\n");
 
-        const instruction = substituteParams(`
-        Task: ${role.task}
-        The character is {{char}}; the user/persona is {{user}}.
-        Scene: "${tracker}${lastMessage}"
-        Style Constraint: ${styleInst}
-        Perspective: ${perspInst}
-        Additional Req: ${extra}
-        Output ONLY the ${role.output}.
-        `);
+        const instruction = substituteParams(lines);
 
         let generatedText;
         if (useOwnProfile) {
@@ -1205,10 +1165,15 @@ jQuery(async () => {
         $("#kazuma_import_btn").on("click", () => $("#kazuma_import_file").click());
 
         // New Logic Events
-        $("#kazuma_prompt_style").on("change", (e) => { extension_settings[extensionName].promptStyle = $(e.target).val(); saveSettingsDebounced(); });
-        $("#kazuma_prompt_persp").on("change", (e) => { extension_settings[extensionName].promptPerspective = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_prompt_style").on("change", (e) => { extension_settings[extensionName].promptStyle = $(e.target).val(); toggleCustomPromptInputs(); saveSettingsDebounced(); });
+        $("#kazuma_prompt_style_custom").on("input", (e) => { extension_settings[extensionName].promptStyleCustom = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_style_constraint").on("change", (e) => { extension_settings[extensionName].styleConstraint = $(e.target).val(); toggleCustomPromptInputs(); saveSettingsDebounced(); });
+        $("#kazuma_style_constraint_custom").on("input", (e) => { extension_settings[extensionName].styleConstraintCustom = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_prompt_persp").on("change", (e) => { extension_settings[extensionName].promptPerspective = $(e.target).val(); toggleCustomPromptInputs(); saveSettingsDebounced(); });
+        $("#kazuma_prompt_persp_custom").on("input", (e) => { extension_settings[extensionName].promptPerspectiveCustom = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_prompt_role").on("change", (e) => { extension_settings[extensionName].promptRole = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_prompt_extra").on("input", (e) => { extension_settings[extensionName].promptExtra = $(e.target).val(); saveSettingsDebounced(); });
+        $("#kazuma_char_appearance").on("input", (e) => { extension_settings[extensionName].charAppearance = $(e.target).val(); saveSettingsDebounced(); });
         $("#kazuma_profile_strategy").on("change", (e) => {
             extension_settings[extensionName].profileStrategy = $(e.target).val();
             toggleProfileVisibility();
@@ -1349,7 +1314,8 @@ const PROFILE_STATE_KEYS = [
     'selectedModel', 'selectedSampler', 'selectedScheduler',
     'steps', 'cfg', 'denoise', 'clipSkip',
     'imgWidth', 'imgHeight', 'customSeed', 'customNegative', 'customPositive',
-    'promptStyle', 'promptPerspective', 'promptRole', 'promptExtra',
+    'promptStyle', 'promptStyleCustom', 'styleConstraint', 'styleConstraintCustom',
+    'promptPerspective', 'promptPerspectiveCustom', 'promptRole', 'promptExtra', 'charAppearance',
     'loras',
 ];
 
@@ -1415,9 +1381,16 @@ function applyProfileState(state) {
 
     // Smart Prompt UI
     $("#kazuma_prompt_style").val(s.promptStyle || "standard");
+    $("#kazuma_prompt_style_custom").val(s.promptStyleCustom || "");
+    $("#kazuma_style_constraint").val(s.styleConstraint || "none");
+    $("#kazuma_style_constraint_custom").val(s.styleConstraintCustom || "");
     $("#kazuma_prompt_persp").val(s.promptPerspective || "scene");
+    $("#kazuma_prompt_persp_custom").val(s.promptPerspectiveCustom || "");
     $("#kazuma_prompt_role").val(s.promptRole || "engineer");
     $("#kazuma_prompt_extra").val(s.promptExtra || "");
+    $("#kazuma_char_appearance").val(s.charAppearance || "");
+    // .val() never fires change, so the custom boxes have to be re-toggled by hand.
+    toggleCustomPromptInputs();
 
 }
 
@@ -1686,7 +1659,12 @@ function renderLoraQuickList() {
         return;
     }
 
-    loras.forEach((lora, i) => {
+    // Sorted for reading only - the stored order is what numbered *lora2* placeholders map to, and
+    // the LoRA manager's Move up button owns it. Rows still hold the real objects, so edits stick.
+    const sorted = [...loras].sort((a, b) =>
+        shortLoraName(a.name).localeCompare(shortLoraName(b.name), undefined, { numeric: true, sensitivity: 'base' }));
+
+    sorted.forEach((lora) => {
         const $row = $(`
         <div class="kazuma-lora-row">
             <input type="checkbox" class="kz-on" title="Active">

@@ -18,53 +18,22 @@
                 </label>
             </div>
 
-            <!-- Everything that shapes the text prompt -->
+            <!-- Everything that is NOT tied to the active image profile: who to talk to, when to fire, and set-once plumbing -->
             <div class="kazuma-group">
-                <div class="kazuma-header"><i class="fa-solid fa-wand-magic-sparkles"></i> Prompt Generation</div>
+                <div class="kazuma-header"><i class="fa-solid fa-gear"></i> General</div>
 
-                <div class="kazuma-sub-label" style="margin-top:0;">Prompt Generator Preset</div>
+                <div class="kazuma-sub-label" style="margin-top:0;">Connection Profile</div>
+                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Which connection profile the prompt generator runs on. "Current" follows whatever profile you are using; "Specific" fires at its own connection profile without touching your active one.</small>
                 <select id="kazuma_profile_strategy" class="text_pole" style="width:100%; margin-bottom: 5px;">
-                    <option value="current">Use Current Active Preset</option>
-                    <option value="specific">Use Specific Preset...</option>
+                    <option value="current">Follow Current Connection Profile</option>
+                    <option value="specific">Use Specific Connection Profile...</option>
                 </select>
 
                 <!-- 1. Specific Profile List (Shown ONLY if 'specific') -->
                 <select id="kazuma_profile" class="text_pole" style="width:100%; display:none;"></select>
 
-                <!-- 2. Prompt Builder (Shown ONLY if 'current') -->
-                <div id="kazuma_prompt_builder" style="display:none; background:rgba(0,0,0,0.2); padding:10px; border-radius:5px; margin-top:5px; border-left: 2px solid var(--smart-text-color);">
-                    <div class="kazuma-sub-label" style="margin-top:0;">Model Style (Format)</div>
-                    <select id="kazuma_prompt_style" class="text_pole" style="width:100%; margin-bottom:8px;">
-                        <option value="standard">Standard (Descriptive)</option>
-                        <option value="illustrious">Illustrious / Pony (Booru Tags)</option>
-                        <option value="sdxl">SDXL / Realistic (Natural Prose)</option>
-                        <option value="krea2">Krea 2 (Expanded Paragraph)</option>
-                        <option value="krea2beta">Krea 2 Beta (Expanded Paragraph)</option>
-                        <option value="krea2mini">Krea 2 Claude Mini Test (Expanded Paragraph)</option>
-                        <option value="krea2mini2">Krea 2 Claude Mini Test #2 (Expanded Paragraph)</option>
-                    </select>
-
-                    <div class="kazuma-sub-label" style="margin-top:0;">Camera Perspective</div>
-                    <select id="kazuma_prompt_persp" class="text_pole" style="width:100%; margin-bottom:8px;">
-                        <option value="scene">Cinematic Scene (Environmental)</option>
-                        <option value="pov">First Person (POV)</option>
-                        <option value="character">Character Focus (Portrait)</option>
-                    </select>
-
-                    <div class="kazuma-sub-label" style="margin-top:0;">AI Role</div>
-                    <select id="kazuma_prompt_role" class="text_pole" style="width:100%; margin-bottom:8px;">
-                        <option value="engineer">Prompt Engineer</option>
-                        <option value="writer">Scene Description Writer</option>
-                    </select>
-
-                    <div class="kazuma-sub-label" style="margin-top:0;">Extra Instructions</div>
-                    <input type="text" id="kazuma_prompt_extra" class="text_pole" style="width:100%" placeholder="e.g. moody lighting, dark atmosphere...">
-                </div>
-
-                <hr style="opacity:0.2; margin: 10px 0;">
-
-                <div class="kazuma-sub-label" style="margin-top:0;">Image Gen Context Preset</div>
-                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Controls what chat history &amp; character info is sent to the prompt generator when using a connection profile</small>
+                <div class="kazuma-sub-label" style="margin-top:0;">Generation Context</div>
+                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">What chat history &amp; character info is sent to the generator. Only used when a specific connection profile is set above.</small>
                 <div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;">
                     <select id="kazuma_image_gen_preset" class="text_pole" style="flex:1;min-width:120px;">
                         <option>Loading...</option>
@@ -74,18 +43,19 @@
                     <button id="kazuma_delete_preset" class="menu_button" title="Delete selected preset"><i class="fa-solid fa-trash"></i></button>
                 </div>
 
-                <label class="kazuma-row" style="margin-bottom:0;" title="Prepend the latest Tracker-Enhanced tracker to the scene">
+                <div class="kazuma-sub-label" style="margin-top:0;">ComfyUI Server</div>
+                <div style="display:flex; gap: 5px;">
+                    <input type="text" id="kazuma_url" class="text_pole" value="http://127.0.0.1:8188" placeholder="API URL" style="flex:1;" />
+                    <button id="kazuma_test_btn" class="menu_button" title="Test Connection"><i class="fa-solid fa-wifi"></i></button>
+                </div>
+
+                <label class="kazuma-row" style="margin-top:10px;" title="Prepend the latest Tracker-Enhanced tracker to the scene">
                     <span><i class="fa-solid fa-clipboard-list"></i> Include Tracker</span>
                     <input type="checkbox" id="kazuma_include_tracker" />
                 </label>
-            </div>
 
-            <!-- When to fire -->
-            <div class="kazuma-group">
-                <div class="kazuma-header"><i class="fa-solid fa-robot"></i> Automation</div>
-
-                <label class="kazuma-row">
-                    <span>Auto-Generate</span>
+                <label class="kazuma-row" title="Generate an image automatically after replies">
+                    <span><i class="fa-solid fa-robot"></i> Auto-Generate</span>
                     <input type="checkbox" id="kazuma_auto_enable" />
                 </label>
 
@@ -93,12 +63,36 @@
                     <span>Every X replies:</span>
                     <input type="number" id="kazuma_auto_freq" class="text_pole" style="width: 60px" min="1" value="1"/>
                 </div>
+
+                <label class="kazuma-row" title="Fixes lag by compressing images">
+                    <span><i class="fa-solid fa-compress"></i> Compress Images (Fix Lag)</span>
+                    <input type="checkbox" id="kazuma_compress" />
+                </label>
+                <div id="kazuma_compress_opts">
+                    <div class="kazuma-slider-row">
+                        <span>Format</span>
+                        <select id="kazuma_compress_format" class="text_pole" style="flex:1;">
+                            <option value="jpeg">JPEG</option>
+                            <option value="webp">WebP</option>
+                        </select>
+                    </div>
+                    <div class="kazuma-slider-row" title="Higher = better quality, bigger files">
+                        <span>Quality</span>
+                        <input type="range" id="kazuma_compress_quality" min="10" max="100" step="1" />
+                        <input type="number" id="kazuma_compress_quality_val" class="text_pole" style="width:50px">
+                    </div>
+                </div>
+
+                <label class="kazuma-row" style="margin-bottom:0;" title="Show prompt popup for editing before generation">
+                    <span><i class="fa-solid fa-bug"></i> Diagnostic Mode</span>
+                    <input type="checkbox" id="kazuma_debug" />
+                </label>
             </div>
 
-            <!-- The image side: profile owns workflow + params + loras -->
+            <!-- The image side: profile owns workflow, prompt instructions, params and loras -->
             <div class="kazuma-group">
                 <div class="kazuma-header"><i class="fa-solid fa-id-badge"></i> Image Profile</div>
-                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Workflow, LoRAs and every image parameter in one set. Link a profile to characters or chats and it swaps itself in when you open them.</small>
+                <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">Workflow, prompt instructions, LoRAs and every image parameter in one set. Link a profile to characters or chats and it swaps itself in when you open them - everything below moves with it.</small>
                 <div style="display:flex; gap:5px;">
                     <select id="kazuma_image_profile" class="text_pole" style="flex:1"></select>
                     <button id="kazuma_manage_profiles" class="menu_button" title="Manage profiles &amp; links"><i class="fa-solid fa-users-gear"></i></button>
@@ -114,121 +108,131 @@
                     <button id="kazuma_edit_workflow" class="menu_button fa-solid fa-pen" title="Edit"></button>
                     <button id="kazuma_delete_workflow" class="menu_button fa-solid fa-trash" title="Delete"></button>
                 </div>
-            </div>
 
-            <!-- Collapsible 1: Image Settings -->
-            <details class="kazuma-details" open>
-                <summary><i class="fa-solid fa-sliders"></i> Image Parameters</summary>
-                <div class="kazuma-content">
-                    <div class="kazuma-sub-label" style="margin-top:0;">Checkpoint / Model</div>
-                    <select id="kazuma_model_list" class="text_pole" style="width:100%"></select>
+                <!-- 2. Prompt Builder (always shown; the knobs are profile-owned) -->
+                <div id="kazuma_prompt_builder" style="background:rgba(0,0,0,0.2); padding:10px; border-radius:5px; margin-top:10px; border-left: 2px solid var(--smart-text-color);">
+                    <div class="kazuma-sub-label" style="margin-top:0;">Prompt Instructions</div>
+                    <select id="kazuma_prompt_style" class="text_pole" style="width:100%; margin-bottom:8px;">
+                        <option value="standard">Standard (Descriptive)</option>
+                        <option value="illustrious">Illustrious / Pony (Booru Tags)</option>
+                        <option value="sdxl">SDXL / Realistic (Natural Prose)</option>
+                        <option value="krea2">Krea 2 (Expanded Paragraph)</option>
+                        <option value="krea2beta">Krea 2 Beta (Expanded Paragraph)</option>
+                        <option value="krea2mini">Krea 2 Claude Mini Test (Expanded Paragraph)</option>
+                        <option value="krea2mini2">Krea 2 Claude Mini Test #2 (Expanded Paragraph)</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <textarea id="kazuma_prompt_style_custom" class="text_pole" rows="4" style="width:100%; margin-bottom:8px; display:none;" placeholder="Your own instructions for how the prompt should be written..."></textarea>
 
-                    <div class="kazuma-row" style="margin-top:10px;">
-                        <span>Sampler</span>
-                        <select id="kazuma_sampler_list" class="text_pole" style="width: 60%"></select>
-                    </div>
+                    <div class="kazuma-sub-label" style="margin-top:0;">Style Constraint</div>
+                    <select id="kazuma_style_constraint" class="text_pole" style="width:100%; margin-bottom:8px;">
+                        <option value="none">None</option>
+                        <option value="photo">Realistic Photograph</option>
+                        <option value="render">3D Render</option>
+                        <option value="cartoon">Cartoon Illustration</option>
+                        <option value="anime">Anime Illustration</option>
+                        <option value="hyperreal">Hyperrealistic Digital Illustration</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="text" id="kazuma_style_constraint_custom" class="text_pole" style="width:100%; margin-bottom:8px; display:none;" placeholder="e.g. The image is a watercolour painting.">
 
-                    <div class="kazuma-row" style="margin-top:10px;">
-                        <span>Scheduler</span>
-                        <select id="kazuma_scheduler_list" class="text_pole" style="width: 60%"></select>
-                    </div>
+                    <div class="kazuma-sub-label" style="margin-top:0;">Camera Perspective</div>
+                    <select id="kazuma_prompt_persp" class="text_pole" style="width:100%; margin-bottom:8px;">
+                        <option value="scene">Cinematic Scene (Environmental)</option>
+                        <option value="pov">First Person (POV)</option>
+                        <option value="character">Character Focus (Portrait)</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <input type="text" id="kazuma_prompt_persp_custom" class="text_pole" style="width:100%; margin-bottom:8px; display:none;" placeholder="e.g. Describe the scene from a low angle, looking up.">
 
-                    <hr style="opacity:0.2; margin: 10px 0;">
+                    <div class="kazuma-sub-label" style="margin-top:0;">AI Role</div>
+                    <select id="kazuma_prompt_role" class="text_pole" style="width:100%; margin-bottom:8px;">
+                        <option value="engineer">Prompt Engineer</option>
+                        <option value="writer">Scene Description Writer</option>
+                    </select>
 
-                    <!-- Sliders -->
-                    <div class="kazuma-slider-row">
-                        <span>Steps</span>
-                        <input type="range" id="kazuma_steps" min="1" max="100" />
-                        <input type="number" id="kazuma_steps_val" class="text_pole" style="width:50px">
-                    </div>
+                    <div class="kazuma-sub-label" style="margin-top:0;">Extra Instructions</div>
+                    <input type="text" id="kazuma_prompt_extra" class="text_pole" style="width:100%; margin-bottom:8px;" placeholder="e.g. moody lighting, dark atmosphere...">
 
-                    <div class="kazuma-slider-row">
-                        <span>CFG</span>
-                        <input type="range" id="kazuma_cfg" min="1" max="30" step="0.5" />
-                        <input type="number" id="kazuma_cfg_val" class="text_pole" style="width:50px">
-                    </div>
-
-                    <div class="kazuma-slider-row">
-                        <span>Denoise</span>
-                        <input type="range" id="kazuma_denoise" min="0" max="1" step="0.05" />
-                        <input type="number" id="kazuma_denoise_val" class="text_pole" style="width:50px">
-                    </div>
-
-                    <div class="kazuma-slider-row">
-                        <span>CLIP</span>
-                        <input type="range" id="kazuma_clip" min="1" max="12" step="1" />
-                        <input type="number" id="kazuma_clip_val" class="text_pole" style="width:50px">
-                    </div>
-
-                    <div class="kazuma-sub-label">Resolution</div>
-                    <select id="kazuma_resolution_list" class="text_pole" style="width:100%; margin-bottom:5px;"></select>
-                    <div style="display:flex; gap:5px; align-items:center;">
-                        <input type="number" id="kazuma_width" class="text_pole" placeholder="W" style="flex:1">
-                        <span>x</span>
-                        <input type="number" id="kazuma_height" class="text_pole" placeholder="H" style="flex:1">
-                    </div>
-
-                    <div class="kazuma-sub-label">Seed (-1 for random)</div>
-                    <input type="number" id="kazuma_seed" class="text_pole" style="width:100%">
-
-                    <div class="kazuma-sub-label">Positive Prompt Suffix</div>
-                    <textarea id="kazuma_positive" class="text_pole" rows="2" style="width:100%; font-size:12px;" placeholder="Appended to every prompt — e.g. LoRA trigger words, style tags"></textarea>
-
-                    <div class="kazuma-sub-label">Negative Prompt Override</div>
-                    <textarea id="kazuma_negative" class="text_pole" rows="2" style="width:100%; font-size:12px;"></textarea>
+                    <div class="kazuma-sub-label" style="margin-top:0;">Character Appearance <span class="opacity50p">(optional)</span></div>
+                    <small style="font-size: 0.75em; opacity: 0.6; display: block; margin-bottom: 5px;">How {{char}} should be described, in your words. Overrides whatever the model reads off the character card. Leave empty to let it interpret the card itself. Lives in the image profile, so it follows the character you linked it to.</small>
+                    <textarea id="kazuma_char_appearance" class="text_pole" rows="3" style="width:100%" placeholder="e.g. mid-20s, waist-length silver hair, amber eyes, faint freckles, always in a worn navy greatcoat"></textarea>
                 </div>
-            </details>
 
-            <!-- Collapsible 2: LoRA Lab -->
-            <details class="kazuma-details">
-                <summary><i class="fa-solid fa-flask"></i> LoRA Lab</summary>
-                <div class="kazuma-content">
-                    <div id="kazuma_lora_quick"></div>
-                    <button id="kazuma_manage_loras" class="menu_button" style="width:100%; margin-top:10px;">
-                        <i class="fa-solid fa-sliders"></i> Manage LoRAs
-                    </button>
-                </div>
-            </details>
+                <!-- Collapsible 1: Image Parameters (profile-owned) -->
+                <details class="kazuma-details" open>
+                    <summary><i class="fa-solid fa-sliders"></i> Image Parameters</summary>
+                    <div class="kazuma-content">
+                        <div class="kazuma-sub-label" style="margin-top:0;">Checkpoint / Model</div>
+                        <select id="kazuma_model_list" class="text_pole" style="width:100%"></select>
 
-            <!-- Collapsible 3: set-once plumbing -->
-            <details class="kazuma-details">
-                <summary><i class="fa-solid fa-link"></i> ComfyUI Server</summary>
-                <div class="kazuma-content">
-                    <div style="display:flex; gap: 5px;">
-                        <input type="text" id="kazuma_url" class="text_pole" value="http://127.0.0.1:8188" placeholder="API URL" style="flex:1;" />
-                        <button id="kazuma_test_btn" class="menu_button" title="Test Connection"><i class="fa-solid fa-wifi"></i></button>
-                    </div>
-                </div>
-            </details>
+                        <div class="kazuma-row" style="margin-top:10px;">
+                            <span>Sampler</span>
+                            <select id="kazuma_sampler_list" class="text_pole" style="width: 60%"></select>
+                        </div>
 
-            <!-- Collapsible 4: rarely touched -->
-            <details class="kazuma-details">
-                <summary><i class="fa-solid fa-screwdriver-wrench"></i> Advanced</summary>
-                <div class="kazuma-content">
-                    <label class="kazuma-row" title="Fixes lag by compressing images">
-                        <span><i class="fa-solid fa-compress"></i> Compress Images (Fix Lag)</span>
-                        <input type="checkbox" id="kazuma_compress" />
-                    </label>
-                    <div id="kazuma_compress_opts">
+                        <div class="kazuma-row" style="margin-top:10px;">
+                            <span>Scheduler</span>
+                            <select id="kazuma_scheduler_list" class="text_pole" style="width: 60%"></select>
+                        </div>
+
+                        <hr style="opacity:0.2; margin: 10px 0;">
+
+                        <!-- Sliders -->
                         <div class="kazuma-slider-row">
-                            <span>Format</span>
-                            <select id="kazuma_compress_format" class="text_pole" style="flex:1;">
-                                <option value="jpeg">JPEG</option>
-                                <option value="webp">WebP</option>
-                            </select>
+                            <span>Steps</span>
+                            <input type="range" id="kazuma_steps" min="1" max="100" />
+                            <input type="number" id="kazuma_steps_val" class="text_pole" style="width:50px">
                         </div>
-                        <div class="kazuma-slider-row" title="Higher = better quality, bigger files">
-                            <span>Quality</span>
-                            <input type="range" id="kazuma_compress_quality" min="10" max="100" step="1" />
-                            <input type="number" id="kazuma_compress_quality_val" class="text_pole" style="width:50px">
+
+                        <div class="kazuma-slider-row">
+                            <span>CFG</span>
+                            <input type="range" id="kazuma_cfg" min="1" max="30" step="0.5" />
+                            <input type="number" id="kazuma_cfg_val" class="text_pole" style="width:50px">
                         </div>
+
+                        <div class="kazuma-slider-row">
+                            <span>Denoise</span>
+                            <input type="range" id="kazuma_denoise" min="0" max="1" step="0.05" />
+                            <input type="number" id="kazuma_denoise_val" class="text_pole" style="width:50px">
+                        </div>
+
+                        <div class="kazuma-slider-row">
+                            <span>CLIP</span>
+                            <input type="range" id="kazuma_clip" min="1" max="12" step="1" />
+                            <input type="number" id="kazuma_clip_val" class="text_pole" style="width:50px">
+                        </div>
+
+                        <div class="kazuma-sub-label">Resolution</div>
+                        <select id="kazuma_resolution_list" class="text_pole" style="width:100%; margin-bottom:5px;"></select>
+                        <div style="display:flex; gap:5px; align-items:center;">
+                            <input type="number" id="kazuma_width" class="text_pole" placeholder="W" style="flex:1">
+                            <span>x</span>
+                            <input type="number" id="kazuma_height" class="text_pole" placeholder="H" style="flex:1">
+                        </div>
+
+                        <div class="kazuma-sub-label">Seed (-1 for random)</div>
+                        <input type="number" id="kazuma_seed" class="text_pole" style="width:100%">
+
+                        <div class="kazuma-sub-label">Positive Prompt Suffix</div>
+                        <textarea id="kazuma_positive" class="text_pole" rows="2" style="width:100%; font-size:12px;" placeholder="Appended to every prompt — e.g. LoRA trigger words, style tags"></textarea>
+
+                        <div class="kazuma-sub-label">Negative Prompt Override</div>
+                        <textarea id="kazuma_negative" class="text_pole" rows="2" style="width:100%; font-size:12px;"></textarea>
                     </div>
-                    <label class="kazuma-row" style="margin-bottom:0;" title="Show prompt popup for editing before generation">
-                        <span><i class="fa-solid fa-bug"></i> Diagnostic Mode</span>
-                        <input type="checkbox" id="kazuma_debug" />
-                    </label>
-                </div>
-            </details>
+                </details>
+
+                <!-- Collapsible 2: LoRA Lab (profile-owned) -->
+                <details class="kazuma-details">
+                    <summary><i class="fa-solid fa-flask"></i> LoRA Lab</summary>
+                    <div class="kazuma-content">
+                        <div id="kazuma_lora_quick"></div>
+                        <button id="kazuma_manage_loras" class="menu_button" style="width:100%; margin-top:10px;">
+                            <i class="fa-solid fa-sliders"></i> Manage LoRAs
+                        </button>
+                    </div>
+                </details>
+            </div>
 
             <!-- Manual Action -->
             <button id="kazuma_gen_prompt_btn" class="menu_button" style="width:100%; padding: 10px;">
