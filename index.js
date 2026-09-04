@@ -1647,6 +1647,7 @@ async function openProfileManager() {
 
     $content.find('.pm-delete').on('click', () => {
         if (Object.keys(s.profiles).length <= 1) return toastr.warning("That's the last profile.");
+        if (!confirm(`Delete profile "${s.profiles[editingId].name}"?`)) return;
         delete s.profiles[editingId];
         if (s.defaultProfileId === editingId) s.defaultProfileId = Object.keys(s.profiles)[0];
         s.activeProfileId = "";
