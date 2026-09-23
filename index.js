@@ -1334,6 +1334,13 @@ function captureProfileState() {
     return state;
 }
 
+/** A profile with nothing carried over - what "New" means, as opposed to "Duplicate". */
+function blankProfileState() {
+    const state = {};
+    for (const key of PROFILE_STATE_KEYS) state[key] = structuredClone(defaultSettings[key]);
+    return state;
+}
+
 function getActiveProfile() {
     const s = extension_settings[extensionName];
     return s.profiles?.[s.activeProfileId] || null;
@@ -1618,9 +1625,14 @@ async function openProfileManager() {
     $content.find('.pm-new').on('click', () => {
         snapshotActiveProfile();
         const id = newProfileId();
-        s.profiles[id] = { id, name: `Profile ${Object.keys(s.profiles).length + 1}`, links: [], state: captureProfileState() };
+        const state = blankProfileState();
+        s.profiles[id] = { id, name: `Profile ${Object.keys(s.profiles).length + 1}`, links: [], state };
         s.activeProfileId = id;
         editingId = id;
+        // Live settings have to follow, or the drawer still shows the old profile's LoRAs and the
+        // next snapshot writes them straight back over the blank. switchProfile can't do it - it
+        // early-returns once activeProfileId is already this one.
+        applyProfileState(state);
         saveSettingsDebounced();
         populateImageProfiles();
         refresh();
@@ -1829,6 +1841,7 @@ async function openLoraManager() {
         <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;">
             <div class="menu_button lm-add"><i class="fa-solid fa-plus"></i> Add LoRA</div>
             <div class="menu_button lm-import" title="Pull the LoRAs hardcoded in this workflow's Power Lora Loader into the list"><i class="fa-solid fa-file-import"></i> Import from workflow</div>
+            <div class="menu_button lm-clear" title="Empty this profile's LoRA list"><i class="fa-solid fa-broom"></i> Remove all</div>
             <span class="lm-count opacity50p" style="font-size:12px;"></span>
         </div>
         <small class="opacity50p">Only the LoRAs you pick live here - <b>Add LoRA</b> opens the full searchable list and takes as many as you tick at once. Min/max set that row's slider range, so a LoRA that only behaves between 0 and 0.4 gets a slider for exactly that. Off sends it at strength 0, which changes nothing in the image, and the row stays so you can flip it back. Click a name to swap it for a different file. <b>Trigger words</b> are appended to the prompt whenever that LoRA is on - they are stored against the filename, so you type them once and every profile using that LoRA gets them.</small>
@@ -1932,6 +1945,16 @@ async function openLoraManager() {
         saveSettingsDebounced();
         refresh();
         $rows.scrollTop($rows[0].scrollHeight);
+    });
+
+    $content.find('.lm-clear').on('click', () => {
+        if (!s.loras.length) return;
+        if (!confirm(`Remove all ${s.loras.length} LoRAs from "${getActiveProfile()?.name || 'this profile'}"?`)) return;
+        // loraTriggers is deliberately left alone: it is global and keyed by filename, so the words
+        // are still there if the same file comes back. Only LoRAs in the list are ever read from it.
+        s.loras.length = 0;
+        saveSettingsDebounced();
+        refresh();
     });
 
     $content.find('.lm-import').on('click', async () => {
