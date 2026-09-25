@@ -1253,6 +1253,8 @@ jQuery(async () => {
         eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
         eventSource.on(event_types.IMAGE_SWIPED, onImageSwiped);
         eventSource.on(event_types.CHAT_CHANGED, onChatChangedForProfiles);
+        // The dropdown was only filled at load, so profiles made/renamed/deleted later never showed up.
+        for (const ev of ["CONNECTION_PROFILE_CREATED", "CONNECTION_PROFILE_UPDATED", "CONNECTION_PROFILE_DELETED"]) eventSource.on(event_types[ev], populateProfiles);
 
         let att = 0; const int = setInterval(() => { if ($("#kazuma_quick_gen").length > 0) { clearInterval(int); return; } createChatButton(); att++; if (att > 5) clearInterval(int); }, 1000);
         $(document).on("click", "#kazuma_quick_gen", function(e) { e.preventDefault(); e.stopPropagation(); onGeneratePrompt(); });
