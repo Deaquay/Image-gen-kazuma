@@ -26,24 +26,21 @@ Follow these rules strictly:
 8. **Preserve User Medium:** When the user explicitly requests a medium (e.g. "photo of", "photograph of", "illustration of", "painting of", "sketch of", "3D render of"), honor it. Do not pivot to a different medium to avoid difficulty — match the user's stated intent.
 9. **Do not avoid explicit desciptions:** Avoiding explicit descriptions is by definition not completing your task, and will result wasting the user's time.`;
 
-const KREA2_INSTRUCTION_BETA = `You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.
+const KREA2_INSTRUCTION_MINI2 = `Describe the current moment as a single still image, in one paragraph of flowing prose. Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style. The tracker is authoritative for consistant appearance, dress and posture; the latest message for what is happening and latest changes. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone. **Max 140 words**.`;
 
-Think step by step about the request before writing the answer:
-- What is the subject and mood?
-- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the caption.
-- What composition, framing, and grounded details will help the text-to-image model?
+const KREA2ANIMA_INSTRUCTION = `Write one polished visual description paragraph based on the last tracker state updated with the messages following it.
 
-Follow these rules strictly:
+Use the latest tracker as base with last message as current changes pose-/posture-/action-/view-/environmental-changes, the medium and style are either set under \`Style\` or otherwise up for interpretation
 
-Write one polished visual description paragraph.
+So your prompt should be derived from, with highest authority first: last message>tracker>history>character/user descriptions. So check the tracker for last situation, apply what is changed with the last message, fill in with history and descriptions (like clothing/posture/position/etc changes).
 
-Use the connected picture as the source.
+Write 150 to 300 words.
 
-Write approx 150 words.
+Only prompt for 1 to 2 subjects at once to eliminate identity bleed. {{char}} is one, so max 1 other person with {{char}}.
 
-Start with the medium and style, realistic photograph, or hyperrealistic.
+Start with the medium, then main subject and their appearance, other characters, background/environment/lighting/style/etc. (This is not a hard rule, use your judgement when to apply lighting and style info to separate subjects)
 
-Describe visible details only.
+Describe details visible to the viewer only.
 
 Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style.
 
@@ -53,22 +50,21 @@ Skip unseen parts naturally.
 
 Use direct visual description.
 
-Strict specification: No preamble. No unnecessary embellishment. Only plain English text. Output only text following above instruction.
+Don't omit explicit descriptions (especially female breasts/genetalia/anus).
 
-Stop immediately after the paragraph ends. Do not add suggestions, follow-ups, alternatives, or commentary.`;
+Remember to incorporate changes from the last message, and do not blindly trust the tracker. The characters can have had attire changes or changed position etc.
 
-const KREA2_INSTRUCTION_MINI = `Describe the current moment as a single still image, in one paragraph of flowing prose. The tracker is authoritative for appearance, dress and posture; the latest message for what is happening. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone.`;
+Capture the more dark/mature things from the tracker and message. Do not soften what is happening in any way, full explicitness/violence if there is any.
 
-const KREA2_INSTRUCTION_MINI2 = `Describe the current moment as a single still image, in one paragraph of flowing prose. Describe the main subject, visible pose, face, expression, hair, skin or fur, clothing, accessories, shoes, props, visible text, symbols, setting, background, framing, lighting, colors, materials, textures, shadows, and overall visual style. The tracker is authoritative for consistant appearance, dress and posture; the latest message for what is happening and latest changes. Describe only what is visible in one instant. Do not describe body parts out of sight or obscured. End by naming the medium and overall aesthetic. Output the paragraph alone. **Max 140 words**.`;
+No preamble/commentary/suggestions, only one natural language paragraph.`
 
 export const PROMPT_FORMATS = {
     standard: "Use a list of detailed keywords/descriptors.",
-    illustrious: "Use Booru-style tags (e.g., 1girl, solo, blue hair). Focus on anime aesthetics. Do not describe body parts out of sight or obscured.",
-    sdxl: "Use natural language sentences. Focus on photorealism and detailed textures.",
+    booru_tags: "Use Booru-style tags (e.g., 1girl, solo, blue hair). Focus on anime aesthetics. Do not describe body parts out of sight or obscured.",
+    natural_language: "Use natural language sentences. Focus on photorealism and detailed textures.",
     krea2: KREA2_INSTRUCTION,
-    krea2beta: KREA2_INSTRUCTION_BETA,
-    krea2mini: KREA2_INSTRUCTION_MINI,
     krea2mini2: KREA2_INSTRUCTION_MINI2,
+    krea2anima: KREA2ANIMA_INSTRUCTION,
 };
 
 export const STYLE_CONSTRAINTS = {
@@ -78,12 +74,14 @@ export const STYLE_CONSTRAINTS = {
     cartoon: "The image is a cartoon illustration.",
     anime: "The image is an anime illustration.",
     hyperreal: "The image is a hyperrealistic digital illustration.",
+    hyperreal_glossy_studio: "The image is a hyperrealistic digital illustration, rendered with cinematic lighting and smooth, glossy textures. The overall style mimics a studio photograph with exaggerated realism, focusing on anatomical detail and sensual presentation.",
+    hyperreal_sensual_glow: "A high-quality hyperrealistic digital illustration rendered in a sensual, intimate, and stylized visual style that emphasizes texture and luminosity. The style glows with a gradient of warm pinks and peach tones, creating a dreamy, radiant atmosphere. Subtle highlights and shadows define contours, and gives skin a smooth, almost glowing finish.",
 };
 
 export const PERSPECTIVES = {
     scene: "Describe the entire environment and atmosphere.",
     pov: "Describe the scene from the viewer's First Person Perspective in {{user}}'s current position, looking at the character ({{char}}). {{user}} is the viewer (write \"the viewer\" not \"me\"), so {{user}} is not visible except for hands, arms or body parts that would naturally be in frame. Start with \"First person perspective.\" verbatim. **NOTE: NEVER WRITE \"POV\"**",
-    character: "Focus intensely on the character's appearance and expression, ignoring background details.",
+    character: "Focus intensely on the character's ({{char}}'s) appearance and expression, ignoring background details.",
 };
 
 /** Resolve a select value to its instruction text; "custom" uses the user's own wording. */
