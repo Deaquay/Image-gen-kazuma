@@ -48,16 +48,11 @@ function getPlaceholderList() {
 }
 
 const RESOLUTIONS = [
-    { label: "1024 x 1024 (SDXL 1:1)", w: 1024, h: 1024 },
-    { label: "1152 x 896 (SDXL Landscape)", w: 1152, h: 896 },
-    { label: "896 x 1152 (SDXL Portrait)", w: 896, h: 1152 },
-    { label: "1216 x 832 (SDXL Landscape)", w: 1216, h: 832 },
-    { label: "832 x 1216 (SDXL Portrait)", w: 832, h: 1216 },
-    { label: "1344 x 768 (SDXL Landscape)", w: 1344, h: 768 },
-    { label: "768 x 1344 (SDXL Portrait)", w: 768, h: 1344 },
-    { label: "512 x 512 (SD 1.5 1:1)", w: 512, h: 512 },
-    { label: "768 x 512 (SD 1.5 Landscape)", w: 768, h: 512 },
-    { label: "512 x 768 (SD 1.5 Portrait)", w: 512, h: 768 },
+    { label: "1024 x 1024 (Square 1:1)", w: 1024, h: 1024 },
+    { label: "1344 x 768 (16:9)", w: 1344, h: 768 },
+    { label: "768 x 1344 (9:16)", w: 768, h: 1344 },
+    { label: "1248 x 832 (3:2)", w: 1248, h: 832 },
+    { label: "832 x 1248 (2:3)", w: 832, h: 1248 },
 ];
 
 const defaultWorkflowData = {
@@ -1124,6 +1119,46 @@ async function insertImageToChat(dataUrl, promptText, target = null, originChatI
 
     } catch (err) { console.error(err); toastr.error("Failed to save/insert image."); }
 }
+
+// --- EDITABLE PROMPT IN THE ENLARGED IMAGE VIEW ---
+// The enlarged view is core ST and doesn't say which message it came from, so remember the last
+// thumbnail clicked (capture phase, before core's handler opens the popup).
+let lastEnlarged = null;
+document.addEventListener("click", (e) => {
+    const el = e.target.closest?.(".mes_img, .mes_media_enlarge");
+    if (!el) return;
+    lastEnlarged = {
+        messageId: Number(el.closest(".mes")?.getAttribute("mesid")),
+        mediaIndex: Number(el.closest(".mes_media_container")?.getAttribute("data-index")),
+    };
+}, true);
+
+function makePromptEditable(code) {
+    if (code.dataset.kazumaEditable || !lastEnlarged || !extension_settings[extensionName]?.enabled) return;
+    const { messageId, mediaIndex } = lastEnlarged;
+    const message = getContext().chat[messageId];
+    const media = message?.extra?.media?.[mediaIndex];
+    if (!media || media.source !== "generated" || media.title !== code.textContent) return;
+
+    code.dataset.kazumaEditable = "1";
+    code.contentEditable = "plaintext-only";
+    code.style.outline = "1px dashed var(--SmartThemeBorderColor)";
+
+    const btn = $('<div class="menu_button">Regenerate with this prompt</div>');
+    btn.on("click", (e) => {
+        e.stopPropagation();
+        const prompt = code.textContent.trim();
+        if (!prompt) return;
+        code.closest("dialog")?.click(); // closes the popup
+        // Same path as swiping right on the last image; the new image keeps the prompt it was made from.
+        generateWithComfy(prompt, { message, element: $(`.mes[mesid="${messageId}"]`) });
+    });
+    $(code).closest("pre").after(btn);
+}
+
+new MutationObserver(() => {
+    document.querySelectorAll(".img_enlarged_title").forEach(makePromptEditable);
+}).observe(document.body, { childList: true, subtree: true });
 
 // --- INIT ---
 jQuery(async () => {
